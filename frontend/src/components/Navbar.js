@@ -1,0 +1,247 @@
+// src/components/Navbar.js
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+// Material UI imports
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Button, 
+  Box,
+  Avatar,
+  IconButton,
+  useTheme,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Menu,
+  MenuItem
+} from '@mui/material';
+
+// Material UI icons
+import {
+  Dashboard as DashboardIcon,
+  Person as PersonIcon,
+  PersonAdd as PersonAddIcon,
+  Login as LoginIcon,
+  Logout as LogoutIcon,
+  Menu as MenuIcon,
+  AccountCircle as AccountCircleIcon,
+  Settings as SettingsIcon
+} from '@mui/icons-material';
+
+// Sidebar/Drawer component
+const Sidebar = ({ open, onClose }) => {
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleNavigation = (path) => {
+    navigate(path);
+    onClose();
+  };
+  
+  return (
+    <Drawer anchor="left" open={open} onClose={onClose}>
+      <Box sx={{ width: 250 }} role="presentation">
+        {isAuthenticated && user && (
+          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Avatar sx={{ mb: 1, bgcolor: 'primary.main' }}>
+              {user.first_name ? user.first_name[0] : user.email[0].toUpperCase()}
+            </Avatar>
+            <Typography variant="subtitle1">
+              {user.first_name || user.email.split('@')[0]}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {user.email}
+            </Typography>
+          </Box>
+        )}
+        
+        <Divider />
+        
+        <List>
+          {isAuthenticated ? (
+            <>
+              <ListItem button onClick={() => handleNavigation('/')}>
+                <ListItemIcon>
+                  <DashboardIcon />
+                </ListItemIcon>
+                <ListItemText primary="Dashboard" />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/employees')}>
+                <ListItemIcon>
+                  <PersonIcon />
+                </ListItemIcon>
+                <ListItemText primary="Employees" />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/employees/add')}>
+                <ListItemIcon>
+                  <PersonAddIcon />
+                </ListItemIcon>
+                <ListItemText primary="Add Employee" />
+              </ListItem>
+              
+              <Divider />
+              
+              <ListItem button onClick={logout}>
+                <ListItemIcon>
+                  <LogoutIcon />
+                </ListItemIcon>
+                <ListItemText primary="Logout" />
+              </ListItem>
+            </>
+          ) : (
+            <>
+              <ListItem button onClick={() => handleNavigation('/login')}>
+                <ListItemIcon>
+                  <LoginIcon />
+                </ListItemIcon>
+                <ListItemText primary="Login" />
+              </ListItem>
+            </>
+          )}
+        </List>
+      </Box>
+    </Drawer>
+  );
+};
+
+const Navbar = () => {
+  const { isAuthenticated, logout, user } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const theme = useTheme();
+  
+  const toggleDrawer = (open) => (event) => {
+    if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
+      return;
+    }
+    setDrawerOpen(open);
+  };
+  
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+  
+  const handleLogout = () => {
+    handleMenuClose();
+    logout();
+  };
+  
+  return (
+    <>
+      <AppBar position="static">
+        <Toolbar>
+          <IconButton
+            edge="start"
+            color="inherit"
+            aria-label="menu"
+            sx={{ mr: 2 }}
+            onClick={toggleDrawer(true)}
+          >
+            <MenuIcon />
+          </IconButton>
+          
+          <Typography 
+            variant="h6" 
+            component={Link} 
+            to="/" 
+            sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit' }}
+          >
+            MSD Admin Portal
+          </Typography>
+          
+          {isAuthenticated ? (
+            <>
+              <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+                <Button color="inherit" component={Link} to="/" sx={{ mr: 1 }}>
+                  Dashboard
+                </Button>
+                <Button color="inherit" component={Link} to="/employees" sx={{ mr: 1 }}>
+                  Employees
+                </Button>
+              </Box>
+              
+              <IconButton
+                color="inherit"
+                onClick={handleMenuOpen}
+                sx={{ ml: 1 }}
+                aria-controls="user-menu"
+                aria-haspopup="true"
+              >
+                {user ? (
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
+                    {user.first_name ? user.first_name[0] : user.email[0].toUpperCase()}
+                  </Avatar>
+                ) : (
+                  <AccountCircleIcon />
+                )}
+              </IconButton>
+              
+              <Menu
+                id="user-menu"
+                anchorEl={anchorEl}
+                keepMounted
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+              >
+                <MenuItem disabled>
+                  <Typography variant="body2" color="text.secondary">
+                    Signed in as {user?.email || 'User'}
+                  </Typography>
+                </MenuItem>
+                <Divider />
+                <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
+                  <ListItemIcon>
+                    <AccountCircleIcon fontSize="small" />
+                  </ListItemIcon>
+                  Profile
+                </MenuItem>
+                <MenuItem component={Link} to="/settings" onClick={handleMenuClose}>
+                  <ListItemIcon>
+                    <SettingsIcon fontSize="small" />
+                  </ListItemIcon>
+                  Settings
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  Logout
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <Button color="inherit" component={Link} to="/login">
+              Login
+            </Button>
+          )}
+        </Toolbar>
+      </AppBar>
+      
+      <Sidebar open={drawerOpen} onClose={toggleDrawer(false)} />
+    </>
+  );
+};
+
+export default Navbar;
