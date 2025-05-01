@@ -80,7 +80,6 @@ const setupAxiosInterceptors = (checkAuthStatus) => {
 // Protected Route component to handle authentication check
 const ProtectedRoute = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
   
   // Check loading state
   if (isLoading) {

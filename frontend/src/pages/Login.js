@@ -1,6 +1,5 @@
 // src/pages/Login.js
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 // Material UI imports
@@ -33,7 +32,7 @@ const Login = () => {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { login, error, setError, isAuthenticated } = useAuth();
+  const { login, error, setError} = useAuth();
 
   // Clear errors when component unmounts
   useEffect(() => {
