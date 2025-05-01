@@ -22,7 +22,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://msd-admin.netlify.app/",
+        "https://msd-admin.netlify.app",
     ],  # Allow frontend requests
     allow_credentials=True,
     allow_methods=["*"],
