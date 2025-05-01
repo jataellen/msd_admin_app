@@ -20,7 +20,10 @@ app = FastAPI()
 app.middleware("http")(auth_middleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Allow frontend requests
+    allow_origins=[
+        "http://localhost:3000",
+        "https://msd-admin.netlify.app/",
+    ],  # Allow frontend requests
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
