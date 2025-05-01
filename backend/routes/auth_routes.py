@@ -116,24 +116,42 @@ async def login(request: AuthRequest, response: Response):
         access_token = auth_response.session.access_token
         refresh_token = auth_response.session.refresh_token
 
-        # Set access token cookie
+        # # Set access token cookie
+        # response.set_cookie(
+        #     key="access_token",
+        #     value=f"Bearer {access_token}",
+        #     httponly=True,
+        #     secure=SECURE_COOKIE,  # Set to True in production with HTTPS
+        #     samesite="lax",
+        #     path="/",
+        #     max_age=TOKEN_EXPIRY,
+        # )
         response.set_cookie(
             key="access_token",
             value=f"Bearer {access_token}",
             httponly=True,
-            secure=SECURE_COOKIE,  # Set to True in production with HTTPS
-            samesite="lax",
+            secure=True,  # Must be True for cross-site cookies
+            samesite="None",  # Critical for cross-domain requests
             path="/",
             max_age=TOKEN_EXPIRY,
         )
 
         # Set refresh token cookie
+        # response.set_cookie(
+        #     key="refresh_token",
+        #     value=refresh_token,
+        #     httponly=True,
+        #     secure=SECURE_COOKIE,
+        #     samesite="lax",
+        #     path="/",
+        #     max_age=7 * 24 * 3600,  # 7 days
+        # )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=SECURE_COOKIE,
-            samesite="lax",
+            secure=True,
+            samesite="None",
             path="/",
             max_age=7 * 24 * 3600,  # 7 days
         )
