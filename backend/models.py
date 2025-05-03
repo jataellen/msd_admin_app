@@ -5,37 +5,54 @@ from datetime import datetime, date, time
 from forms import as_form
 
 
-# Work Item models
-class WorkItemBase(BaseModel):
-    description: str
+# Task models
+class TaskBase(BaseModel):
+    title: str
+    order_id: Optional[int] = None
+    assigned_to: Optional[str] = None
     status: str
     priority: str
-    assigned_to: Optional[str] = None
-    entered_by: str
-    last_action: Optional[str] = None
-    next_action: Optional[str] = None
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
+    description: Optional[str] = None
+    estimated_hours: Optional[float] = None
+    predecessor_task_id: Optional[int] = None
+    related_to_type: Optional[str] = None
+    related_to_id: Optional[int] = None
+    recurring: Optional[bool] = None
+    recurrence_pattern: Optional[str] = None
+    recurrence_end_date: Optional[date] = None
+    reminder_date: Optional[datetime] = None
+    reminder_sent: Optional[bool] = None
     notes: Optional[str] = None
-    project_id: Optional[int] = None
+    next_action: Optional[str] = None
+    last_action: Optional[str] = None
+    created_by: int
 
 
-class WorkItemCreate(WorkItemBase):
+class TaskCreate(TaskBase):
     pass
 
 
-class WorkItemUpdate(WorkItemBase):
+class TaskUpdate(TaskBase):
     pass
 
 
-class WorkItem(WorkItemBase):
-    id: int
+class Task(TaskBase):
+    task_id: int
+    completion_date: Optional[datetime] = None
+    completion_percentage: Optional[int] = None
+    actual_hours: Optional[float] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
 
 
-# Project models
-class ProjectBase(BaseModel):
-    project_name: str
+# Order models
+class OrderBase(BaseModel):
+    order_name: str
     description: Optional[str] = None
     location: Optional[str] = None
     customer_id: int
@@ -45,7 +62,7 @@ class ProjectBase(BaseModel):
     target_completion_date: Optional[date] = None
     actual_completion_date: Optional[date] = None
     budget: Optional[float] = None
-    project_manager_id: Optional[int] = None
+    order_manager_id: Optional[int] = None
     contract_signed_date: Optional[date] = None
     progress_percentage: Optional[int] = None
     contract_number: Optional[str] = None
@@ -53,16 +70,16 @@ class ProjectBase(BaseModel):
     notes: Optional[str] = None
 
 
-class ProjectCreate(ProjectBase):
+class OrderCreate(OrderBase):
     pass
 
 
-class ProjectUpdate(ProjectBase):
+class OrderUpdate(OrderBase):
     pass
 
 
-class Project(ProjectBase):
-    project_id: int
+class Order(OrderBase):
+    order_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
     budget_spent: Optional[float] = None
@@ -151,7 +168,7 @@ class Contact(ContactBase):
 
 # Quote models
 class QuoteBase(BaseModel):
-    project_id: int
+    order_id: int
     status: str
     version: int
     issue_date: date
@@ -198,7 +215,7 @@ class Quote(QuoteBase):
 
 # Purchase Order models
 class PurchaseOrderBase(BaseModel):
-    project_id: int
+    order_id: int
     supplier_id: int
     status: str
     issue_date: date
@@ -234,52 +251,9 @@ class PurchaseOrder(PurchaseOrderBase):
         orm_mode = True
 
 
-# Task models
-class TaskBase(BaseModel):
-    title: str
-    project_id: int
-    assigned_to: Optional[int] = None
-    status: str
-    priority: str
-    start_date: Optional[date] = None
-    due_date: Optional[date] = None
-    description: Optional[str] = None
-    estimated_hours: Optional[float] = None
-    predecessor_task_id: Optional[int] = None
-    related_to_type: Optional[str] = None
-    related_to_id: Optional[int] = None
-    recurring: Optional[bool] = None
-    recurrence_pattern: Optional[str] = None
-    recurrence_end_date: Optional[date] = None
-    reminder_date: Optional[datetime] = None
-    reminder_sent: Optional[bool] = None
-    notes: Optional[str] = None
-    created_by: int
-
-
-class TaskCreate(TaskBase):
-    pass
-
-
-class TaskUpdate(TaskBase):
-    pass
-
-
-class Task(TaskBase):
-    task_id: int
-    completion_date: Optional[datetime] = None
-    completion_percentage: Optional[int] = None
-    actual_hours: Optional[float] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        orm_mode = True
-
-
 # Invoice models
 class InvoiceBase(BaseModel):
-    project_id: int
+    order_id: int
     date_issued: date
     due_date: date
     total_amount: float

@@ -97,18 +97,18 @@ const Sidebar = ({ open, onClose }) => {
                 />
               </ListItem>
               
-              <ListItem button onClick={() => handleNavigation('/work-items')}>
+              <ListItem button onClick={() => handleNavigation('/tasks')}>
                 <ListItemIcon>
                   <AssignmentIcon />
                 </ListItemIcon>
-                <ListItemText primary="Work Items" />
+                <ListItemText primary="Tasks" />
               </ListItem>
               
-              <ListItem button onClick={() => handleNavigation('/projects')}>
+              <ListItem button onClick={() => handleNavigation('/orders')}>
                 <ListItemIcon>
                   <BusinessCenterIcon />
                 </ListItemIcon>
-                <ListItemText primary="Projects" />
+                <ListItemText primary="Orders" />
               </ListItem>
               
               <ListItem button onClick={() => handleNavigation('/quotes')}>
@@ -123,13 +123,6 @@ const Sidebar = ({ open, onClose }) => {
                   <ShoppingCartIcon />
                 </ListItemIcon>
                 <ListItemText primary="Purchase Orders" />
-              </ListItem>
-              
-              <ListItem button onClick={() => handleNavigation('/tasks')}>
-                <ListItemIcon>
-                  <FormatListBulletedIcon />
-                </ListItemIcon>
-                <ListItemText primary="Tasks" />
               </ListItem>
               
               <ListItem button onClick={() => handleNavigation('/invoices')}>
@@ -266,11 +259,11 @@ const Navbar = () => {
                 <Button color="inherit" component={Link} to="/" sx={{ mr: 1 }}>
                   Dashboard
                 </Button>
-                <Button color="inherit" component={Link} to="/work-items" sx={{ mr: 1 }}>
-                  Work Items
+                <Button color="inherit" component={Link} to="/tasks" sx={{ mr: 1 }}>
+                  Tasks
                 </Button>
-                <Button color="inherit" component={Link} to="/projects" sx={{ mr: 1 }}>
-                  Projects
+                <Button color="inherit" component={Link} to="/orders" sx={{ mr: 1 }}>
+                  Orders
                 </Button>
                 <Button color="inherit" component={Link} to="/quickbooks" sx={{ mr: 1 }}>
                   QuickBooks

@@ -18,7 +18,8 @@ import {
 
 // Page imports
 import Dashboard from "./components/Dashboard";
-import WorkItems from "./pages/WorkItems";
+// Make sure Tasks component exists at this path
+import Tasks from "./pages/Tasks"; // You might need to create this file if it doesn't exist
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import Login from "./pages/Login";
 import Navbar from "./components/Navbar";
@@ -144,6 +145,19 @@ const PublicOnlyRoute = ({ children }) => {
   return !isAuthenticated ? children : null;
 };
 
+// Create a temporary Tasks component if the real one doesn't exist yet
+// This helps prevent the "undefined component" error
+const TasksPlaceholder = () => {
+  return (
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h4" gutterBottom>Tasks</Typography>
+      <Typography>
+        Tasks functionality is coming soon. This is a placeholder component.
+      </Typography>
+    </Box>
+  );
+};
+
 // Main application content
 const AppContent = () => {
   const { isLoading, checkAuthStatus } = useAuth();
@@ -160,6 +174,9 @@ const AppContent = () => {
       </Box>
     );
   }
+
+  // Use the actual Tasks component if it exists, otherwise use the placeholder
+  const TasksComponent = typeof Tasks !== 'undefined' ? Tasks : TasksPlaceholder;
 
   return (
     <Router>
@@ -180,14 +197,13 @@ const AppContent = () => {
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/work-items" element={<WorkItems />} />
+            <Route path="/tasks" element={<TasksComponent />} />
             <Route path="/quickbooks" element={<QuickBooksIntegration />} />
-            <Route path="/projects" element={<Box sx={{ p: 2 }}>Projects Page (Coming Soon)</Box>} />
-            <Route path="/projects/:id" element={<Box sx={{ p: 2 }}>Project Details (Coming Soon)</Box>} />
-            <Route path="/projects/add" element={<Box sx={{ p: 2 }}>Add Project (Coming Soon)</Box>} />
+            <Route path="/orders" element={<Box sx={{ p: 2 }}>Orders Page (Coming Soon)</Box>} />
+            <Route path="/orders/:id" element={<Box sx={{ p: 2 }}>Order Details (Coming Soon)</Box>} />
+            <Route path="/orders/add" element={<Box sx={{ p: 2 }}>Add Order (Coming Soon)</Box>} />
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
-            <Route path="/tasks" element={<Box sx={{ p: 2 }}>Tasks Page (Coming Soon)</Box>} />
             <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />
             <Route path="/invoices" element={<Box sx={{ p: 2 }}>Invoices Page (Coming Soon)</Box>} />
             <Route path="/employees" element={<Box sx={{ p: 2 }}>Employee List Page</Box>} />

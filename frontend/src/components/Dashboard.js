@@ -20,16 +20,15 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
-  Chip,
-  IconButton
+  Chip
 } from '@mui/material';
 
 // Material UI icons
 import {
   ArrowForward as ArrowForwardIcon,
   Assignment as AssignmentIcon,
-  Build as BuildIcon,
-  PriorityHigh as PriorityHighIcon,
+  Business as BusinessIcon,
+  Description as DescriptionIcon,
   LocalShipping as LocalShippingIcon,
   AttachMoney as AttachMoneyIcon
 } from '@mui/icons-material';
@@ -37,10 +36,10 @@ import {
 // API URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-// Status categories based on CRM workflow
+// Task status categories
 const STATUS_CATEGORIES = {
   LEADS: ['New Lead', 'Follow Up', 'Interested', 'Not Interested'],
-  QUOTES: ['Active Project', 'Quote Prepared', 'Quote Sent', 'Quote Accepted'],
+  QUOTES: ['Quote Prepared', 'Quote Sent', 'Quote Accepted'],
   MATERIALS: ['Materials Ordering', 'Materials Ordered', 'Partial Received', 'Received', 'Ready for Delivery', 'Delivered'],
   BILLING: ['Invoiced', 'Paid', 'Completed', 'Follow-up Complete']
 };
@@ -48,70 +47,88 @@ const STATUS_CATEGORIES = {
 const Dashboard = () => {
   const navigate = useNavigate();
   
-  // Data states
-  const [workItems, setWorkItems] = useState([]);
+  // State variables
+  const [tasks, setTasks] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Summary states
+  // Summary state variables
   const [leadsSummary, setLeadsSummary] = useState([]);
   const [quotesSummary, setQuotesSummary] = useState([]);
   const [materialsSummary, setMaterialsSummary] = useState([]);
   const [billingSummary, setBillingSummary] = useState([]);
   const [upcomingTasks, setUpcomingTasks] = useState([]);
+  const [ordersByStatus, setOrdersByStatus] = useState({});
   
-  // Fetch work items
+  // Fetch tasks and orders
   useEffect(() => {
-    const fetchWorkItems = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
       
       try {
-        const response = await axios.get(`${API_URL}/work-items`, {
+        // Fetch tasks
+        const tasksResponse = await axios.get(`${API_URL}/tasks`, {
           withCredentials: true
         });
         
-        setWorkItems(response.data.work_items || []);
+        if (tasksResponse.data && tasksResponse.data.tasks) {
+          setTasks(tasksResponse.data.tasks);
+        } else {
+          setTasks([]);
+        }
+        
+        // Fetch orders
+        const ordersResponse = await axios.get(`${API_URL}/orders`, {
+          withCredentials: true
+        });
+        
+        if (ordersResponse.data && ordersResponse.data.orders) {
+          setOrders(ordersResponse.data.orders);
+        } else {
+          setOrders([]);
+        }
       } catch (err) {
-        console.error('Error fetching work items:', err);
+        console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data. Please try again.');
       } finally {
         setLoading(false);
       }
     };
     
-    fetchWorkItems();
+    fetchData();
   }, []);
   
-  // Calculate summary counts when work items change
+  // Process task data for summaries
   useEffect(() => {
-    if (!workItems.length) return;
+    if (!tasks.length) return;
     
     // Process leads summary
     const leads = STATUS_CATEGORIES.LEADS.map(status => ({
       status,
-      count: workItems.filter(item => item.status === status).length
+      count: tasks.filter(task => task.status === status).length
     })).filter(item => item.count > 0);
     setLeadsSummary(leads);
     
     // Process quotes summary
     const quotes = STATUS_CATEGORIES.QUOTES.map(status => ({
       status,
-      count: workItems.filter(item => item.status === status).length
+      count: tasks.filter(task => task.status === status).length
     })).filter(item => item.count > 0);
     setQuotesSummary(quotes);
     
     // Process materials summary
     const materials = STATUS_CATEGORIES.MATERIALS.map(status => ({
       status,
-      count: workItems.filter(item => item.status === status).length
+      count: tasks.filter(task => task.status === status).length
     })).filter(item => item.count > 0);
     setMaterialsSummary(materials);
     
     // Process billing summary
     const billing = STATUS_CATEGORIES.BILLING.map(status => ({
       status,
-      count: workItems.filter(item => item.status === status).length
+      count: tasks.filter(task => task.status === status).length
     })).filter(item => item.count > 0);
     setBillingSummary(billing);
     
@@ -120,17 +137,34 @@ const Dashboard = () => {
     const nextWeek = new Date();
     nextWeek.setDate(today.getDate() + 7);
     
-    const upcoming = workItems
-      .filter(item => {
-        if (!item.due_date) return false;
-        const dueDate = new Date(item.due_date);
+    const upcoming = tasks
+      .filter(task => {
+        if (!task.due_date) return false;
+        const dueDate = new Date(task.due_date);
         return dueDate >= today && dueDate <= nextWeek;
       })
       .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))
       .slice(0, 5); // Limit to 5 tasks
     
     setUpcomingTasks(upcoming);
-  }, [workItems]);
+  }, [tasks]);
+  
+  // Process order data for summaries
+  useEffect(() => {
+    if (!orders.length) return;
+    
+    // Group orders by status
+    const statusGroups = {};
+    
+    orders.forEach(order => {
+      if (!statusGroups[order.status]) {
+        statusGroups[order.status] = [];
+      }
+      statusGroups[order.status].push(order);
+    });
+    
+    setOrdersByStatus(statusGroups);
+  }, [orders]);
   
   // Get priority chip color
   const getPriorityColor = (priority) => {
@@ -145,6 +179,28 @@ const Dashboard = () => {
         return 'info';
       case 'Low':
         return 'success';
+      default:
+        return 'default';
+    }
+  };
+  
+  // Get order status color
+  const getOrderStatusColor = (status) => {
+    if (!status) return 'default';
+    
+    switch (status) {
+      case 'Lead':
+        return 'info';
+      case 'Quoted':
+        return 'secondary';
+      case 'Active':
+        return 'primary';
+      case 'On Hold':
+        return 'warning';
+      case 'Completed':
+        return 'success';
+      case 'Cancelled':
+        return 'error';
       default:
         return 'default';
     }
@@ -177,7 +233,179 @@ const Dashboard = () => {
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        CRM Workflow Dashboard
+        Construction CRM Dashboard
+      </Typography>
+      
+      {/* Orders Summary Section */}
+      <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 4, mb: 2 }}>
+        Orders Overview
+      </Typography>
+      
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Active Orders */}
+        <Grid item xs={12} md={6} lg={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <BusinessIcon color="primary" sx={{ mr: 1 }} />
+                <Typography variant="h6" component="h3">
+                  Active Orders
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ mb: 2 }} />
+              
+              {ordersByStatus['Active'] && ordersByStatus['Active'].length > 0 ? (
+                <Box>
+                  <Typography variant="h4" color="primary" gutterBottom>
+                    {ordersByStatus['Active'].length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Orders currently in progress
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No active orders
+                </Typography>
+              )}
+            </CardContent>
+            <CardActions>
+              <Button 
+                size="small" 
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/orders?status=Active')}
+              >
+                View Active Orders
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+        
+        {/* Quoted Orders */}
+        <Grid item xs={12} md={6} lg={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <DescriptionIcon color="secondary" sx={{ mr: 1 }} />
+                <Typography variant="h6" component="h3">
+                  Quoted Orders
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ mb: 2 }} />
+              
+              {ordersByStatus['Quoted'] && ordersByStatus['Quoted'].length > 0 ? (
+                <Box>
+                  <Typography variant="h4" color="secondary" gutterBottom>
+                    {ordersByStatus['Quoted'].length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Orders waiting for approval
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No quoted orders
+                </Typography>
+              )}
+            </CardContent>
+            <CardActions>
+              <Button 
+                size="small" 
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/orders?status=Quoted')}
+              >
+                View Quoted Orders
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+        
+        {/* Lead Orders */}
+        <Grid item xs={12} md={6} lg={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <AssignmentIcon color="info" sx={{ mr: 1 }} />
+                <Typography variant="h6" component="h3">
+                  New Leads
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ mb: 2 }} />
+              
+              {ordersByStatus['Lead'] && ordersByStatus['Lead'].length > 0 ? (
+                <Box>
+                  <Typography variant="h4" color="info.main" gutterBottom>
+                    {ordersByStatus['Lead'].length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    New potential orders
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No new leads
+                </Typography>
+              )}
+            </CardContent>
+            <CardActions>
+              <Button 
+                size="small" 
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/orders?status=Lead')}
+              >
+                View Leads
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+        
+        {/* Completed Orders */}
+        <Grid item xs={12} md={6} lg={3}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <AttachMoneyIcon color="success" sx={{ mr: 1 }} />
+                <Typography variant="h6" component="h3">
+                  Completed Orders
+                </Typography>
+              </Box>
+              
+              <Divider sx={{ mb: 2 }} />
+              
+              {ordersByStatus['Completed'] && ordersByStatus['Completed'].length > 0 ? (
+                <Box>
+                  <Typography variant="h4" color="success.main" gutterBottom>
+                    {ordersByStatus['Completed'].length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Successfully completed orders
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No completed orders
+                </Typography>
+              )}
+            </CardContent>
+            <CardActions>
+              <Button 
+                size="small" 
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate('/orders?status=Completed')}
+              >
+                View Completed Orders
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+      </Grid>
+      
+      {/* Tasks Section */}
+      <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 4, mb: 2 }}>
+        Task Status
       </Typography>
       
       <Grid container spacing={3}>
@@ -187,7 +415,7 @@ const Dashboard = () => {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <AssignmentIcon color="primary" sx={{ mr: 1 }} />
-                <Typography variant="h6" component="h2">
+                <Typography variant="h6" component="h3">
                   Lead Acquisition
                 </Typography>
               </Box>
@@ -207,7 +435,7 @@ const Dashboard = () => {
                 </List>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  No active leads
+                  No active lead tasks
                 </Typography>
               )}
             </CardContent>
@@ -215,9 +443,9 @@ const Dashboard = () => {
               <Button 
                 size="small" 
                 endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate('/work-items?tab=leads')}
+                onClick={() => navigate('/tasks?tab=leads')}
               >
-                View All Leads
+                View Lead Tasks
               </Button>
             </CardActions>
           </Card>
@@ -228,9 +456,9 @@ const Dashboard = () => {
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <BuildIcon color="secondary" sx={{ mr: 1 }} />
-                <Typography variant="h6" component="h2">
-                  Project Quotes
+                <DescriptionIcon color="secondary" sx={{ mr: 1 }} />
+                <Typography variant="h6" component="h3">
+                  Quote Management
                 </Typography>
               </Box>
               
@@ -249,7 +477,7 @@ const Dashboard = () => {
                 </List>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  No active quotes
+                  No active quote tasks
                 </Typography>
               )}
             </CardContent>
@@ -257,9 +485,9 @@ const Dashboard = () => {
               <Button 
                 size="small" 
                 endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate('/work-items?tab=quotes')}
+                onClick={() => navigate('/tasks?tab=quotes')}
               >
-                View All Quotes
+                View Quote Tasks
               </Button>
             </CardActions>
           </Card>
@@ -271,7 +499,7 @@ const Dashboard = () => {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <LocalShippingIcon color="info" sx={{ mr: 1 }} />
-                <Typography variant="h6" component="h2">
+                <Typography variant="h6" component="h3">
                   Materials & Delivery
                 </Typography>
               </Box>
@@ -291,7 +519,7 @@ const Dashboard = () => {
                 </List>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  No active materials orders
+                  No active material tasks
                 </Typography>
               )}
             </CardContent>
@@ -299,9 +527,9 @@ const Dashboard = () => {
               <Button 
                 size="small" 
                 endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate('/work-items?tab=materials')}
+                onClick={() => navigate('/tasks?tab=materials')}
               >
-                View Materials
+                View Material Tasks
               </Button>
             </CardActions>
           </Card>
@@ -313,7 +541,7 @@ const Dashboard = () => {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <AttachMoneyIcon color="success" sx={{ mr: 1 }} />
-                <Typography variant="h6" component="h2">
+                <Typography variant="h6" component="h3">
                   Billing & Follow-up
                 </Typography>
               </Box>
@@ -333,7 +561,7 @@ const Dashboard = () => {
                 </List>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  No active billing items
+                  No active billing tasks
                 </Typography>
               )}
             </CardContent>
@@ -341,78 +569,153 @@ const Dashboard = () => {
               <Button 
                 size="small" 
                 endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate('/work-items?tab=billing')}
+                onClick={() => navigate('/tasks?tab=billing')}
               >
-                View Billing
+                View Billing Tasks
               </Button>
             </CardActions>
           </Card>
         </Grid>
-        
-        {/* Upcoming Tasks */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" component="h2" gutterBottom>
-              Upcoming Tasks
-            </Typography>
-            
-            <Divider sx={{ mb: 2 }} />
-            
-            {upcomingTasks.length > 0 ? (
-              <Grid container spacing={2}>
-                {upcomingTasks.map((task) => (
-                  <Grid item xs={12} md={6} key={task.id}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Typography variant="subtitle1" component="h3" gutterBottom>
-                            {task.description}
-                          </Typography>
-                          <Chip 
-                            label={task.priority} 
-                            color={getPriorityColor(task.priority)}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </Box>
-                        
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          {task.next_action}
-                        </Typography>
-                        
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-                          <Chip 
-                            label={task.status} 
-                            size="small"
-                          />
-                          <Typography variant="body2">
-                            Due: {new Date(task.due_date).toLocaleDateString()}
-                          </Typography>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            ) : (
-              <Typography variant="body1" sx={{ py: 2 }}>
-                No upcoming tasks for the next 7 days.
-              </Typography>
-            )}
-            
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Button 
-                variant="contained" 
-                color="primary"
-                endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate('/work-items')}
-              >
-                View All Work Items
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
       </Grid>
+      
+      {/* Upcoming Tasks */}
+      <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 4, mb: 2 }}>
+        Upcoming Tasks
+      </Typography>
+      
+      <Paper sx={{ p: 3 }}>
+        {upcomingTasks.length > 0 ? (
+          <Grid container spacing={2}>
+            {upcomingTasks.map((task) => (
+              <Grid item xs={12} md={6} key={task.task_id}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Typography variant="subtitle1" component="h3" gutterBottom>
+                        {task.title}
+                      </Typography>
+                      <Chip 
+                        label={task.priority} 
+                        color={getPriorityColor(task.priority)}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                    
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {task.description}
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                      <Chip 
+                        label={task.status} 
+                        size="small"
+                      />
+                      <Typography variant="body2">
+                        Due: {new Date(task.due_date).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                  {task.order_id && (
+                    <CardActions>
+                      <Button 
+                        size="small" 
+                        onClick={() => navigate(`/orders/${task.order_id}`)}
+                      >
+                        View Related Order
+                      </Button>
+                    </CardActions>
+                  )}
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Typography variant="body1" sx={{ py: 2 }}>
+            No upcoming tasks for the next 7 days.
+          </Typography>
+        )}
+        
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button 
+            variant="contained" 
+            color="primary"
+            endIcon={<ArrowForwardIcon />}
+            onClick={() => navigate('/tasks')}
+          >
+            View All Tasks
+          </Button>
+        </Box>
+      </Paper>
+      
+      {/* Recent Orders */}
+      <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 4, mb: 2 }}>
+        Recent Orders
+      </Typography>
+      
+      <Paper sx={{ p: 3 }}>
+        {orders.length > 0 ? (
+          <Grid container spacing={2}>
+            {orders.slice(0, 4).map((order) => (
+              <Grid item xs={12} md={6} key={order.order_id}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Typography variant="subtitle1" component="h3" gutterBottom>
+                        {order.order_name}
+                      </Typography>
+                      <Chip 
+                        label={order.status} 
+                        color={getOrderStatusColor(order.status)}
+                        size="small"
+                      />
+                    </Box>
+                    
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {order.description?.substring(0, 120)}
+                      {order.description?.length > 120 ? '...' : ''}
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                      <Typography variant="body2">
+                        {order.progress_percentage ? `Progress: ${order.progress_percentage}%` : 'Not started'}
+                      </Typography>
+                      {order.target_completion_date && (
+                        <Typography variant="body2">
+                          Target: {new Date(order.target_completion_date).toLocaleDateString()}
+                        </Typography>
+                      )}
+                    </Box>
+                  </CardContent>
+                  <CardActions>
+                    <Button 
+                      size="small" 
+                      onClick={() => navigate(`/orders/${order.order_id}`)}
+                    >
+                      View Order Details
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          <Typography variant="body1" sx={{ py: 2 }}>
+            No orders available.
+          </Typography>
+        )}
+        
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button 
+            variant="contained" 
+            color="primary"
+            endIcon={<ArrowForwardIcon />}
+            onClick={() => navigate('/orders')}
+          >
+            View All Orders
+          </Button>
+        </Box>
+      </Paper>
     </Box>
   );
 };

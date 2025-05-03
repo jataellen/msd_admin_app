@@ -116,16 +116,7 @@ async def login(request: AuthRequest, response: Response):
         access_token = auth_response.session.access_token
         refresh_token = auth_response.session.refresh_token
 
-        # # Set access token cookie
-        # response.set_cookie(
-        #     key="access_token",
-        #     value=f"Bearer {access_token}",
-        #     httponly=True,
-        #     secure=SECURE_COOKIE,  # Set to True in production with HTTPS
-        #     samesite="lax",
-        #     path="/",
-        #     max_age=TOKEN_EXPIRY,
-        # )
+        # Set access token cookie
         response.set_cookie(
             key="access_token",
             value=f"Bearer {access_token}",
@@ -137,15 +128,6 @@ async def login(request: AuthRequest, response: Response):
         )
 
         # Set refresh token cookie
-        # response.set_cookie(
-        #     key="refresh_token",
-        #     value=refresh_token,
-        #     httponly=True,
-        #     secure=SECURE_COOKIE,
-        #     samesite="lax",
-        #     path="/",
-        #     max_age=7 * 24 * 3600,  # 7 days
-        # )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
@@ -283,45 +265,31 @@ async def update_profile(request: Request):
     return {"message": "Profile updated successfully"}
 
 
+# Root endpoint to get tasks - this replaces the previous work_items endpoint
 @router.get("/")
-async def get_work_items(request: Request):
-    """Get all work items with proper error handling and logging"""
+async def get_root_tasks(request: Request):
+    """Get all tasks with proper error handling and logging"""
     try:
         # Get current user - optional authentication check
         user = await get_current_user(request)
         if not user:
-            logger.warning("Unauthenticated request to get work items")
+            logger.warning("Unauthenticated request to get tasks")
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        logger.info(f"Fetching work items for user: {user.email}")
+        logger.info(f"Fetching tasks for user: {user.email}")
 
-        # Query the work_items table
-        response = supabase.table("work_items").select("*").execute()
+        # Query the tasks table instead of the work_items table
+        response = supabase.table("tasks").select("*").execute()
 
         # Log the response for debugging
-        logger.info(f"Work items query successful. Found {len(response.data)} items")
+        logger.info(f"Tasks query successful. Found {len(response.data)} items")
 
-        return {"work_items": response.data}
+        return {"tasks": response.data}
     except HTTPException as he:
         # Re-raise HTTP exceptions
         raise he
     except Exception as e:
         # Log and handle other exceptions
-        error_msg = f"Error fetching work items: {str(e)}"
+        error_msg = f"Error fetching tasks: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
-
-
-# Optional test endpoint without authentication for debugging
-@router.get("/test-work-items")
-async def test_work_items():
-    """Test endpoint to fetch work items without authentication"""
-    try:
-        logger.info("Testing work items fetch without auth")
-        response = supabase.table("work_items").select("*").execute()
-        logger.info(f"Test query found {len(response.data)} work items")
-        return {"work_items": response.data}
-    except Exception as e:
-        error_msg = f"Test query error: {str(e)}"
-        logger.error(error_msg)
-        return {"error": error_msg}
