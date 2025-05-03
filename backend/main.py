@@ -1,33 +1,30 @@
 # main.py
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from auth import auth_middleware
-from routes import employee_routes, auth_routes
 from fastapi.middleware.cors import CORSMiddleware
+from auth import auth_middleware
 
+# Import route modules directly
+from routes.auth_routes import router as auth_router
+from routes.work_item_routes import router as work_item_router
+from routes.project_routes import router as project_router
+from routes.quickbooks_routes import router as quickbooks_router
 
 app = FastAPI()
 
-
-# # Mount the static files directory
-# app.mount("/static", StaticFiles(directory="./employee_repo/static"), name="static")
-
-# # Set up templates
-# templates = Jinja2Templates(directory="./employee_repo/templates")
-
 # Add middleware
 app.middleware("http")(auth_middleware)
+# main.py
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://msd-admin.netlify.app",
-    ],  # Allow frontend requests
-    allow_credentials=True,
+    allow_origins=["http://localhost:3000"],  # Be specific with the origin
+    allow_credentials=True,  # This is critical for cookies
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Type", "X-CSRFToken"],  # Add any custom headers here
 )
-# Include routers
-# app.include_router(employee_routes.router)
-app.include_router(auth_routes.router)
+
+# Include routers directly
+app.include_router(auth_router)
+app.include_router(work_item_router)
+app.include_router(project_router)
+app.include_router(quickbooks_router)

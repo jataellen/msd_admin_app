@@ -17,7 +17,9 @@ import {
 } from '@mui/material';
 
 // Page imports
-import Home from "./pages/Home";
+import Dashboard from "./components/Dashboard";
+import WorkItems from "./pages/WorkItems";
+import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import Login from "./pages/Login";
 import Navbar from "./components/Navbar";
 
@@ -32,6 +34,14 @@ const theme = createTheme({
     },
     background: {
       default: '#f5f5f5'
+    },
+    // Add success color with required main property
+    success: {
+      main: '#4caf50',  // Required main property
+      light: '#80e27e',
+      dark: '#087f23',
+      contrastText: '#ffffff',
+      50: '#e8f5e9'  // Custom shade for subtle backgrounds
     }
   },
   typography: {
@@ -80,6 +90,7 @@ const setupAxiosInterceptors = (checkAuthStatus) => {
 // Protected Route component to handle authentication check
 const ProtectedRoute = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
   
   // Check loading state
   if (isLoading) {
@@ -168,7 +179,17 @@ const AppContent = () => {
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/work-items" element={<WorkItems />} />
+            <Route path="/quickbooks" element={<QuickBooksIntegration />} />
+            <Route path="/projects" element={<Box sx={{ p: 2 }}>Projects Page (Coming Soon)</Box>} />
+            <Route path="/projects/:id" element={<Box sx={{ p: 2 }}>Project Details (Coming Soon)</Box>} />
+            <Route path="/projects/add" element={<Box sx={{ p: 2 }}>Add Project (Coming Soon)</Box>} />
+            <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
+            <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
+            <Route path="/tasks" element={<Box sx={{ p: 2 }}>Tasks Page (Coming Soon)</Box>} />
+            <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />
+            <Route path="/invoices" element={<Box sx={{ p: 2 }}>Invoices Page (Coming Soon)</Box>} />
             <Route path="/employees" element={<Box sx={{ p: 2 }}>Employee List Page</Box>} />
             <Route path="/employees/add" element={<Box sx={{ p: 2 }}>Add Employee Page</Box>} />
             <Route path="/employees/:id" element={<Box sx={{ p: 2 }}>Employee Details Page</Box>} />
@@ -194,7 +215,7 @@ const AppContent = () => {
       <Box component="footer" sx={{ py: 3, px: 2, mt: 'auto', backgroundColor: (theme) => theme.palette.grey[200] }}>
         <Container maxWidth="sm">
           <Typography variant="body2" color="text.secondary" align="center">
-            © {new Date().getFullYear()} MSD Admin Portal. All rights reserved.
+            © {new Date().getFullYear()} Construction Materials CRM. All rights reserved.
           </Typography>
         </Container>
       </Box>

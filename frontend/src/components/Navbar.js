@@ -20,7 +20,8 @@ import {
   ListItemText,
   Divider,
   Menu,
-  MenuItem
+  MenuItem,
+  Tooltip
 } from '@mui/material';
 
 // Material UI icons
@@ -32,7 +33,16 @@ import {
   Logout as LogoutIcon,
   Menu as MenuIcon,
   AccountCircle as AccountCircleIcon,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Assignment as AssignmentIcon,
+  LocalShipping as LocalShippingIcon,
+  BusinessCenter as BusinessCenterIcon,
+  Description as DescriptionIcon,
+  Receipt as ReceiptIcon,
+  ShoppingCart as ShoppingCartIcon,
+  FormatListBulleted as FormatListBulletedIcon,
+  People as PeopleIcon,
+  SyncAlt as SyncAltIcon
 } from '@mui/icons-material';
 
 // Sidebar/Drawer component
@@ -47,16 +57,16 @@ const Sidebar = ({ open, onClose }) => {
   
   return (
     <Drawer anchor="left" open={open} onClose={onClose}>
-      <Box sx={{ width: 250 }} role="presentation">
+      <Box sx={{ width: 280 }} role="presentation">
         {isAuthenticated && user && (
-          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar sx={{ mb: 1, bgcolor: 'primary.main' }}>
+          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', bgcolor: 'primary.dark', color: 'white' }}>
+            <Avatar sx={{ mb: 1, bgcolor: 'secondary.main', width: 60, height: 60 }}>
               {user.first_name ? user.first_name[0] : user.email[0].toUpperCase()}
             </Avatar>
             <Typography variant="subtitle1">
               {user.first_name || user.email.split('@')[0]}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="white" sx={{ opacity: 0.8 }}>
               {user.email}
             </Typography>
           </Box>
@@ -67,11 +77,86 @@ const Sidebar = ({ open, onClose }) => {
         <List>
           {isAuthenticated ? (
             <>
-              <ListItem button onClick={() => handleNavigation('/')}>
+              <ListItem button onClick={() => handleNavigation('/')} sx={{ py: 1.5 }}>
                 <ListItemIcon>
                   <DashboardIcon />
                 </ListItemIcon>
                 <ListItemText primary="Dashboard" />
+              </ListItem>
+              
+              <Divider />
+              
+              <ListItem sx={{ pt: 2, pb: 1 }}>
+                <ListItemText 
+                  primary="CRM Workflow" 
+                  primaryTypographyProps={{ 
+                    variant: 'overline',
+                    color: 'text.secondary',
+                    fontWeight: 'bold'
+                  }} 
+                />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/work-items')}>
+                <ListItemIcon>
+                  <AssignmentIcon />
+                </ListItemIcon>
+                <ListItemText primary="Work Items" />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/projects')}>
+                <ListItemIcon>
+                  <BusinessCenterIcon />
+                </ListItemIcon>
+                <ListItemText primary="Projects" />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/quotes')}>
+                <ListItemIcon>
+                  <DescriptionIcon />
+                </ListItemIcon>
+                <ListItemText primary="Quotes" />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/purchase-orders')}>
+                <ListItemIcon>
+                  <ShoppingCartIcon />
+                </ListItemIcon>
+                <ListItemText primary="Purchase Orders" />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/tasks')}>
+                <ListItemIcon>
+                  <FormatListBulletedIcon />
+                </ListItemIcon>
+                <ListItemText primary="Tasks" />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/invoices')}>
+                <ListItemIcon>
+                  <ReceiptIcon />
+                </ListItemIcon>
+                <ListItemText primary="Invoices" />
+              </ListItem>
+              
+              <Divider />
+              
+              <ListItem sx={{ pt: 2, pb: 1 }}>
+                <ListItemText 
+                  primary="Contacts" 
+                  primaryTypographyProps={{ 
+                    variant: 'overline',
+                    color: 'text.secondary',
+                    fontWeight: 'bold'
+                  }} 
+                />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/customers')}>
+                <ListItemIcon>
+                  <PeopleIcon />
+                </ListItemIcon>
+                <ListItemText primary="Customers" />
               </ListItem>
               
               <ListItem button onClick={() => handleNavigation('/employees')}>
@@ -81,11 +166,24 @@ const Sidebar = ({ open, onClose }) => {
                 <ListItemText primary="Employees" />
               </ListItem>
               
-              <ListItem button onClick={() => handleNavigation('/employees/add')}>
+              <Divider />
+              
+              <ListItem sx={{ pt: 2, pb: 1 }}>
+                <ListItemText 
+                  primary="Integrations" 
+                  primaryTypographyProps={{ 
+                    variant: 'overline',
+                    color: 'text.secondary',
+                    fontWeight: 'bold'
+                  }} 
+                />
+              </ListItem>
+              
+              <ListItem button onClick={() => handleNavigation('/quickbooks')}>
                 <ListItemIcon>
-                  <PersonAddIcon />
+                  <SyncAltIcon />
                 </ListItemIcon>
-                <ListItemText primary="Add Employee" />
+                <ListItemText primary="QuickBooks" />
               </ListItem>
               
               <Divider />
@@ -141,7 +239,7 @@ const Navbar = () => {
   
   return (
     <>
-      <AppBar position="static">
+      <AppBar position="static" elevation={2}>
         <Toolbar>
           <IconButton
             edge="start"
@@ -157,9 +255,9 @@ const Navbar = () => {
             variant="h6" 
             component={Link} 
             to="/" 
-            sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit' }}
+            sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit', fontWeight: 'bold' }}
           >
-            MSD Admin Portal
+            Construction CRM
           </Typography>
           
           {isAuthenticated ? (
@@ -168,26 +266,34 @@ const Navbar = () => {
                 <Button color="inherit" component={Link} to="/" sx={{ mr: 1 }}>
                   Dashboard
                 </Button>
-                <Button color="inherit" component={Link} to="/employees" sx={{ mr: 1 }}>
-                  Employees
+                <Button color="inherit" component={Link} to="/work-items" sx={{ mr: 1 }}>
+                  Work Items
+                </Button>
+                <Button color="inherit" component={Link} to="/projects" sx={{ mr: 1 }}>
+                  Projects
+                </Button>
+                <Button color="inherit" component={Link} to="/quickbooks" sx={{ mr: 1 }}>
+                  QuickBooks
                 </Button>
               </Box>
               
-              <IconButton
-                color="inherit"
-                onClick={handleMenuOpen}
-                sx={{ ml: 1 }}
-                aria-controls="user-menu"
-                aria-haspopup="true"
-              >
-                {user ? (
-                  <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
-                    {user.first_name ? user.first_name[0] : user.email[0].toUpperCase()}
-                  </Avatar>
-                ) : (
-                  <AccountCircleIcon />
-                )}
-              </IconButton>
+              <Tooltip title="Account menu">
+                <IconButton
+                  color="inherit"
+                  onClick={handleMenuOpen}
+                  sx={{ ml: 1 }}
+                  aria-controls="user-menu"
+                  aria-haspopup="true"
+                >
+                  {user ? (
+                    <Avatar sx={{ width: 32, height: 32, bgcolor: theme.palette.secondary.main }}>
+                      {user.first_name ? user.first_name[0] : user.email[0].toUpperCase()}
+                    </Avatar>
+                  ) : (
+                    <AccountCircleIcon />
+                  )}
+                </IconButton>
+              </Tooltip>
               
               <Menu
                 id="user-menu"
