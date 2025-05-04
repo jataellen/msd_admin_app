@@ -39,10 +39,12 @@ const Home = () => {
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
   
-  const API_URL = process.env.REACT_APP_API_URL || 
-  (window.location.hostname === 'localhost' 
-    ? 'http://localhost:8000'
-    : 'https://msdadminapp-production.up.railway.app');
+  const API_URL = 'https://msdadminapp-production.up.railway.app';
+
+  // const API_URL = process.env.REACT_APP_API_URL || 
+  // (window.location.hostname === 'localhost' 
+  //   ? 'http://localhost:8000'
+  //   : 'https://msdadminapp-production.up.railway.app');
   // Fetch work items from the API - using the same endpoint as before
   useEffect(() => {
     const fetchWorkItems = async () => {
