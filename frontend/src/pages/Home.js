@@ -54,14 +54,18 @@ const Home = () => {
         
         if (response.data && response.data.work_items) {
           setWorkItems(response.data.work_items);
+          setFilteredItems(response.data.work_items); // Initialize filteredItems here
         } else {
           // Fallback if the API doesn't have work_items field
           // This assumes the API is now returning work_items as the main data
-          setWorkItems(response.data || []);
+          const items = response.data || [];
+          setWorkItems(items);
+          setFilteredItems(items); // Initialize filteredItems here
         }
       } catch (err) {
         console.error('Error fetching work items:', err);
         setError('Failed to load work items. Please try again.');
+        setFilteredItems([]); // Set to empty array if there's an error
       } finally {
         setLoading(false);
       }
@@ -90,14 +94,14 @@ const Home = () => {
     setFilteredItems(filtered);
   }, [searchTerm, workItems]);
   
-  // Get current page items
-  const currentItems = filteredItems.slice(
+  // Get current page items - making sure filteredItems is an array
+  const currentItems = Array.isArray(filteredItems) ? filteredItems.slice(
     (page - 1) * rowsPerPage,
     page * rowsPerPage
-  );
+  ) : [];
   
   // Calculate total pages
-  const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
+  const totalPages = Math.ceil((filteredItems.length || 0) / rowsPerPage);
   
   // Handle page change
   const handleChangePage = (event, newPage) => {
@@ -152,12 +156,16 @@ const Home = () => {
       
       if (response.data && response.data.work_items) {
         setWorkItems(response.data.work_items);
+        setFilteredItems(response.data.work_items);
       } else {
-        setWorkItems(response.data || []);
+        const items = response.data || [];
+        setWorkItems(items);
+        setFilteredItems(items);
       }
     } catch (err) {
       console.error('Error refreshing work items:', err);
       setError('Failed to refresh work items. Please try again.');
+      setFilteredItems([]);
     } finally {
       setLoading(false);
     }
