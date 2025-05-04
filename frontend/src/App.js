@@ -23,6 +23,10 @@ import Tasks from "./pages/Tasks"; // You might need to create this file if it d
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import Login from "./pages/Login";
 import Navbar from "./components/Navbar";
+import OrderList from "./pages/OrderList";
+import OrderDetail from "./pages/OrderDetail";
+import OrderForm from "./pages/OrderForm";
+import QuickBooksInvoiceGenerator from "./pages/QuickBooksInvoiceGenerator";
 
 // Create a custom theme
 const theme = createTheme({
@@ -198,9 +202,10 @@ const AppContent = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/tasks" element={<TasksComponent />} />
             <Route path="/quickbooks" element={<QuickBooksIntegration />} />
-            <Route path="/orders" element={<Box sx={{ p: 2 }}>Orders Page (Coming Soon)</Box>} />
-            <Route path="/orders/:id" element={<Box sx={{ p: 2 }}>Order Details (Coming Soon)</Box>} />
-            <Route path="/orders/add" element={<Box sx={{ p: 2 }}>Add Order (Coming Soon)</Box>} />
+            <Route path="/orders" element={<OrderList />} />
+            <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/orders/add" element={<OrderForm />} />
+            <Route path="/orders/:id/edit" element={<OrderForm />} />
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
             <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />
@@ -211,6 +216,7 @@ const AppContent = () => {
             <Route path="/employees/:id/edit" element={<Box sx={{ p: 2 }}>Edit Employee Page</Box>} />
             <Route path="/profile" element={<Box sx={{ p: 2 }}>User Profile Page</Box>} />
             <Route path="/settings" element={<Box sx={{ p: 2 }}>Settings Page</Box>} />
+            <Route path="/quickbooks/push/invoice/:id" element={<QuickBooksInvoiceGenerator />} />
           </Route>
 
           {/* Fallback route */}
