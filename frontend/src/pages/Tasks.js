@@ -24,7 +24,6 @@ import {
   Button,
   Tabs,
   Tab,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -43,7 +42,6 @@ import {
   Refresh as RefreshIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
 } from '@mui/icons-material';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';

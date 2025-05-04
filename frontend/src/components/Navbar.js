@@ -28,19 +28,16 @@ import {
 import {
   Dashboard as DashboardIcon,
   Person as PersonIcon,
-  PersonAdd as PersonAddIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
   Menu as MenuIcon,
   AccountCircle as AccountCircleIcon,
   Settings as SettingsIcon,
   Assignment as AssignmentIcon,
-  LocalShipping as LocalShippingIcon,
   BusinessCenter as BusinessCenterIcon,
   Description as DescriptionIcon,
   Receipt as ReceiptIcon,
   ShoppingCart as ShoppingCartIcon,
-  FormatListBulleted as FormatListBulletedIcon,
   People as PeopleIcon,
   SyncAlt as SyncAltIcon
 } from '@mui/icons-material';

@@ -1,7 +1,6 @@
 // src/pages/QuickBooksIntegration.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
 
 // Material UI imports
 import {
@@ -19,9 +18,7 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
   Chip,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -36,17 +33,14 @@ import {
   Link as LinkIcon,
   Receipt as ReceiptIcon,
   ShoppingCart as ShoppingCartIcon,
-  People as PeopleIcon,
   Check as CheckIcon,
   Error as ErrorIcon,
-  Info as InfoIcon
 } from '@mui/icons-material';
 
 // API URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const QuickBooksIntegration = () => {
-  const { user } = useAuth();
   
   // State variables
   const [loading, setLoading] = useState(false);
@@ -119,7 +113,6 @@ const QuickBooksIntegration = () => {
     setSyncStatus({ ...syncStatus, products: 'syncing' });
     
     try {
-      const response = await axios.post(`${API_URL}/quickbooks/sync/products`, {}, { withCredentials: true });
       
       setSyncStatus({ ...syncStatus, products: 'success' });
       setTimeout(() => setSyncStatus(prev => ({ ...prev, products: null })), 5000);
@@ -156,7 +149,6 @@ const QuickBooksIntegration = () => {
     setSyncStatus({ ...syncStatus, invoices: 'syncing' });
     
     try {
-      const response = await axios.post(`${API_URL}/quickbooks/sync/invoices`, {}, { withCredentials: true });
       
       setSyncStatus({ ...syncStatus, invoices: 'success' });
       setTimeout(() => setSyncStatus(prev => ({ ...prev, invoices: null })), 5000);
@@ -196,7 +188,6 @@ const QuickBooksIntegration = () => {
     setLoading(true);
     
     try {
-      const response = await axios.post(`${API_URL}/quickbooks/link-customer/${selectedCustomer.customer_id}?qb_customer_id=${qbCustomerId}`, {}, { withCredentials: true });
       
       // Update customer in state
       setCustomers(prev => prev.map(c => 
