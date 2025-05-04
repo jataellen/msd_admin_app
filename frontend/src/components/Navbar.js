@@ -250,7 +250,7 @@ const Navbar = () => {
             to="/" 
             sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit', fontWeight: 'bold' }}
           >
-            Construction CRM
+            MSD Admin
           </Typography>
           
           {isAuthenticated ? (
