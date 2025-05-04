@@ -6,7 +6,10 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 // API URL - can be moved to environment variable later
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = process.env.REACT_APP_API_URL || 
+  (window.location.hostname === 'localhost' 
+    ? 'http://localhost:8000'
+    : 'https://msdadminapp-production.up.railway.app');
 
 // Token refresh timer (in milliseconds)
 const TOKEN_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
