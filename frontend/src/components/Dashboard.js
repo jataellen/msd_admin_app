@@ -35,8 +35,9 @@ import {
 
 // API URL
 // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-console.log(process.env.REACT_APP_API_URL)
-const API_URL = 'https://msdadminapp-production.up.railway.app';
+// console.log(process.env.REACT_APP_API_URL)
+// const API_URL = 'https://msdadminapp-production.up.railway.app';
+const API_URL = 'http://localhost:8000';
 
 // Task status categories
 const STATUS_CATEGORIES = {

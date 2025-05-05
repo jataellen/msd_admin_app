@@ -16,10 +16,7 @@ app.middleware("http")(auth_middleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://msd-admin.netlify.app",
-    ],  # Be specific with the origin
+    allow_origins=["http://localhost:3000"],  # Be specific with the origin
     allow_credentials=True,  # This is critical for cookies
     allow_methods=["*"],
     allow_headers=["*"],

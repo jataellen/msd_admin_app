@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Create router with prefix and tags for better API organization
+router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 # Status constants based on CRM workflow
 TASK_STATUSES = {
@@ -82,7 +83,7 @@ class TaskUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-@router.post("/tasks")
+@router.post("/")
 async def create_task(task: TaskCreate, current_user: dict = Depends(get_current_user)):
     """Create a new task with proper validation"""
     try:
@@ -175,7 +176,7 @@ async def create_task(task: TaskCreate, current_user: dict = Depends(get_current
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@router.get("/tasks")
+@router.get("/")
 async def get_tasks(
     status: Optional[str] = None,
     priority: Optional[str] = None,
@@ -222,7 +223,7 @@ async def get_tasks(
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@router.get("/tasks/{task_id}")
+@router.get("/{task_id}")
 async def get_task(task_id: int, current_user: dict = Depends(get_current_user)):
     """Get a specific task by ID"""
     try:
@@ -248,7 +249,7 @@ async def get_task(task_id: int, current_user: dict = Depends(get_current_user))
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@router.put("/tasks/{task_id}")
+@router.put("/{task_id}")
 async def update_task(
     task_id: int,
     task_update: TaskUpdate,
@@ -364,7 +365,7 @@ async def update_task(
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@router.delete("/tasks/{task_id}")
+@router.delete("/{task_id}")
 async def delete_task(task_id: int, current_user: dict = Depends(get_current_user)):
     """Delete a task"""
     try:
@@ -399,13 +400,13 @@ async def delete_task(task_id: int, current_user: dict = Depends(get_current_use
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@router.get("/task-statuses")
+@router.get("/statuses")
 async def get_task_statuses():
     """Get all valid statuses for tasks"""
     return {"statuses": list(TASK_STATUSES.values())}
 
 
-@router.get("/task-priorities")
+@router.get("/priorities")
 async def get_task_priorities():
     """Get all valid priorities for tasks"""
     return {"priorities": list(PRIORITIES.values())}

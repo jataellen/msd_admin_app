@@ -39,7 +39,8 @@ import {
 
 // API URL
 // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-const API_URL = 'https://msdadminapp-production.up.railway.app';
+// const API_URL = 'https://msdadminapp-production.up.railway.app';
+const API_URL = 'http://localhost:8000';
 
 const QuickBooksIntegration = () => {
   

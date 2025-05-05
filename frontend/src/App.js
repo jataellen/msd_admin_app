@@ -18,8 +18,7 @@ import {
 
 // Page imports
 import Dashboard from "./components/Dashboard";
-// Make sure Tasks component exists at this path
-import Tasks from "./pages/Tasks"; // You might need to create this file if it doesn't exist
+import Tasks from "./pages/Tasks";
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import Login from "./pages/Login";
 import Navbar from "./components/Navbar";
@@ -27,6 +26,7 @@ import OrderList from "./pages/OrderList";
 import OrderDetail from "./pages/OrderDetail";
 import OrderForm from "./pages/OrderForm";
 import QuickBooksInvoiceGenerator from "./pages/QuickBooksInvoiceGenerator";
+import OrderTrackingPage from "./pages/OrderTrackingPage"; // Import the new OrderTrackingPage
 
 // Create a custom theme
 const theme = createTheme({
@@ -206,6 +206,8 @@ const AppContent = () => {
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/orders/add" element={<OrderForm />} />
             <Route path="/orders/:id/edit" element={<OrderForm />} />
+            {/* Add the new OrderTrackingPage route */}
+            <Route path="/order-tracking" element={<OrderTrackingPage />} />
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
             <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />

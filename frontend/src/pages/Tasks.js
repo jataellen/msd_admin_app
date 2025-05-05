@@ -44,8 +44,8 @@ import {
   Edit as EditIcon,
 } from '@mui/icons-material';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
+// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = 'http://localhost:8000';
 // Tab panel component
 function TabPanel(props) {
   const { children, value, index, ...other } = props;

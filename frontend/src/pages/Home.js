@@ -38,8 +38,9 @@ const Home = () => {
   const [filteredItems, setFilteredItems] = useState([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
-  
-  const API_URL = 'https://msdadminapp-production.up.railway.app';
+
+  // const API_URL = 'https://msdadminapp-production.up.railway.app';
+  const API_URL = 'http://localhost:8000';
 
   // const API_URL = process.env.REACT_APP_API_URL || 
   // (window.location.hostname === 'localhost' 

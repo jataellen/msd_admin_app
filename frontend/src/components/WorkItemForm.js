@@ -23,7 +23,8 @@ import {
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = 'http://localhost:8000';
 
 const WorkItemForm = ({ workItem, onSuccess, mode = 'create' }) => {
   const { user } = useAuth();
