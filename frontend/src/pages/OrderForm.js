@@ -39,7 +39,6 @@ import {
 // const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 // const API_URL = 'https://msdadminapp-production.up.railway.app';
 const API_URL = 'http://localhost:8000';
-
 const OrderForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -90,8 +89,8 @@ const OrderForm = () => {
         // Fetch all dropdown options in parallel
         const [customersResponse, statusesResponse, prioritiesResponse] = await Promise.all([
           axios.get(`${API_URL}/quickbooks/customers`, { withCredentials: true }),
-          axios.get(`${API_URL}/order-statuses`, { withCredentials: true }),
-          axios.get(`${API_URL}/order-priorities`, { withCredentials: true })
+          axios.get(`${API_URL}/orders/order-statuses`, { withCredentials: true }),
+          axios.get(`${API_URL}/orders/order-priorities`, { withCredentials: true })
         ]);
         
         // Set dropdown options

@@ -194,6 +194,27 @@ async def get_orders(
         raise HTTPException(status_code=500, detail=f"Error fetching orders: {str(e)}")
 
 
+@router.get("/order-statuses")
+async def get_order_statuses():
+    """Get all valid order statuses"""
+    statuses = ["Lead", "Quoted", "Active", "On Hold", "Completed", "Cancelled"]
+    return {"statuses": statuses}
+
+
+@router.get("/order-priorities")
+async def get_order_priorities():
+    """Get all valid order priorities"""
+    priorities = ["Low", "Medium", "High", "Critical"]
+    return {"priorities": priorities}
+
+
+@router.get("/order-types")
+async def get_order_types():
+    """Get all valid order types"""
+    types = list(WORKFLOW_STAGES.keys())
+    return {"types": types}
+
+
 @router.get("/{order_id}")
 async def get_order(order_id: int, current_user: dict = Depends(get_current_user)):
     """Get a specific order by ID"""
@@ -243,12 +264,22 @@ async def get_order(order_id: int, current_user: dict = Depends(get_current_user
 
         # Get related invoices
         invoices_response = (
-            supabase.table("invoices").select("*").eq("order_id", order_id).execute()
+            supabase.table("invoices_reference")
+            .select("*")
+            .eq("order_id", order_id)
+            .execute()
         )
         if invoices_response.data:
             order["invoices"] = invoices_response.data
         else:
             order["invoices"] = []
+        # invoices_response = (
+        #     supabase.table("invoices").select("*").eq("order_id", order_id).execute()
+        # )
+        # if invoices_response.data:
+        #     order["invoices"] = invoices_response.data
+        # else:
+        #     order["invoices"] = []
 
         return {
             "order": order,
@@ -554,27 +585,6 @@ async def delete_order(order_id: int, current_user: dict = Depends(get_current_u
     except Exception as e:
         logger.error(f"Error deleting order: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error deleting order: {str(e)}")
-
-
-@router.get("/order-statuses")
-async def get_order_statuses():
-    """Get all valid order statuses"""
-    statuses = ["Lead", "Quoted", "Active", "On Hold", "Completed", "Cancelled"]
-    return {"statuses": statuses}
-
-
-@router.get("/order-priorities")
-async def get_order_priorities():
-    """Get all valid order priorities"""
-    priorities = ["Low", "Medium", "High", "Critical"]
-    return {"priorities": priorities}
-
-
-@router.get("/order-types")
-async def get_order_types():
-    """Get all valid order types"""
-    types = list(WORKFLOW_STAGES.keys())
-    return {"types": types}
 
 
 @router.get("/workflow-stages/{order_type}")

@@ -85,7 +85,7 @@ const OrderList = () => {
         }
         
         // Fetch order statuses
-        const statusesResponse = await axios.get(`${API_URL}/order-statuses`, {
+        const statusesResponse = await axios.get(`${API_URL}/orders/order-statuses`, {
           withCredentials: true
         });
         
