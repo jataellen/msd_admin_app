@@ -122,10 +122,11 @@ const OrderHistoryTimeline = ({ orderId }) => {
   }, [orderId, filters.eventType, pagination.page]);
 
   // Function to fetch events from API
-  const fetchEvents = async () => {
+const fetchEvents = async () => {
     setLoading(true);
     
     try {
+      // Update this URL to match the endpoint in your backend
       let url = `${API_URL}/orders/${orderId}/history?limit=${pagination.limit}&skip=${(pagination.page - 1) * pagination.limit}`;
       
       if (filters.eventType) {

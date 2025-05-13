@@ -54,12 +54,16 @@ import {
   Schedule as ScheduleIcon,
   Timeline as TimelineIcon,
   Info as InfoIcon,
-  Sync as SyncIcon  // Add this line
+  Sync as SyncIcon,
+  History as HistoryIcon  // Add History icon
 } from '@mui/icons-material';
 
-// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-// const API_URL = 'https://msdadminapp-production.up.railway.app';
+// Import OrderHistoryTimeline component
+import OrderHistoryTimeline from '../components/OrderHistoryTimeline';
+
+// API URL
 const API_URL = 'http://localhost:8000';
+
 // Tab panel component
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -170,11 +174,11 @@ const OrderDetail = () => {
     setUpdateLoading(true);
     
     try {
-    //   const response = await axios.put(
-    //     `${API_URL}/orders/${id}`,
-    //     { status: newStatus },
-    //     { withCredentials: true }
-    //   );
+      // const response = await axios.put(
+      //   `${API_URL}/orders/${id}`,
+      //   { status: newStatus },
+      //   { withCredentials: true }
+      // );
       
       // Update order in state
       setOrder({ ...order, status: newStatus });
@@ -698,6 +702,8 @@ const OrderDetail = () => {
             <Tab label="Purchase Orders" icon={<ShoppingCartIcon />} iconPosition="start" />
             <Tab label="Invoices" icon={<ReceiptIcon />} iconPosition="start" />
             <Tab label="Team" icon={<PeopleIcon />} iconPosition="start" />
+            {/* New History Tab */}
+            <Tab label="History" icon={<HistoryIcon />} iconPosition="start" />
           </Tabs>
         </Box>
         
@@ -1028,6 +1034,11 @@ const OrderDetail = () => {
               </Button>
             </Box>
           )}
+        </TabPanel>
+        
+        {/* History Tab - New tab for OrderHistoryTimeline */}
+        <TabPanel value={tabValue} index={5}>
+            <OrderHistoryTimeline orderId={parseInt(id)} />
         </TabPanel>
       </Paper>
       

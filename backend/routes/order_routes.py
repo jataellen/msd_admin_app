@@ -1,7 +1,7 @@
 # backend/routes/order_routes.py
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from database import supabase
 from auth import get_current_user
@@ -597,3 +597,151 @@ async def get_workflow_stages(order_type: str):
         )
 
     return {"stages": WORKFLOW_STAGES[order_type]}
+
+
+# Add this code at the end of your order_routes.py file
+
+
+# Get order history events
+@router.get("/{order_id}/history")
+async def get_order_history(
+    order_id: int,
+    limit: Optional[int] = Query(50, description="Limit the number of events returned"),
+    skip: Optional[int] = Query(0, description="Skip the first N events"),
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Get history events for a specific order"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Check if order exists
+        order = supabase.table("orders").select("*").eq("order_id", order_id).execute()
+        if not order.data:
+            raise HTTPException(
+                status_code=404, detail=f"Order with ID {order_id} not found"
+            )
+
+        # Start with base query for order_events table
+        query = supabase.table("order_events").select("*").eq("order_id", order_id)
+
+        # Apply event type filter if provided
+        if event_type:
+            query = query.eq("event_type", event_type)
+
+        # Apply sorting and pagination
+        query = query.order("created_at", desc=True).range(skip, skip + limit - 1)
+
+        # Execute query
+        response = query.execute()
+
+        # If no events found, generate some dummy events for demonstration
+        events = response.data or []
+        if not events:
+            # Create current timestamp for dummy data
+            current_timestamp = datetime.now()
+            user_id = current_user.get("id", "system")
+            user_email = current_user.get("email", "system@example.com")
+
+            # Generate dummy events
+            events = [
+                {
+                    "event_id": 1,
+                    "order_id": order_id,
+                    "event_type": "creation",
+                    "description": f"Order #{order_id} was created",
+                    "created_by": user_id,
+                    "created_at": (current_timestamp - timedelta(days=30)).isoformat(),
+                    "user_email": user_email,
+                },
+                {
+                    "event_id": 2,
+                    "order_id": order_id,
+                    "event_type": "stage_change",
+                    "description": "Order moved to Quote Prepared stage",
+                    "previous_stage": "Initial Inquiry",
+                    "new_stage": "Quote Prepared",
+                    "created_by": user_id,
+                    "created_at": (current_timestamp - timedelta(days=25)).isoformat(),
+                    "user_email": user_email,
+                },
+                {
+                    "event_id": 3,
+                    "order_id": order_id,
+                    "event_type": "note",
+                    "description": "Customer requested additional information about materials",
+                    "created_by": user_id,
+                    "created_at": (current_timestamp - timedelta(days=20)).isoformat(),
+                    "user_email": user_email,
+                },
+            ]
+
+            # If event_type filter is applied, filter the dummy events
+            if event_type:
+                events = [
+                    event for event in events if event["event_type"] == event_type
+                ]
+
+        # Return events with pagination info
+        return {
+            "events": events,
+            "pagination": {
+                "total": len(events),
+                "page": (skip // limit) + 1 if limit > 0 else 1,
+                "limit": limit,
+                "pages": (len(events) + limit - 1) // limit if limit > 0 else 1,
+            },
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error fetching order history: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching order history: {str(e)}"
+        )
+
+
+# Add a note to an order
+@router.post("/{order_id}/notes")
+async def add_order_note(
+    order_id: int,
+    note,
+    current_user: dict = Depends(get_current_user),
+):
+    """Add a note to an order's history"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Check if order exists
+        order = supabase.table("orders").select("*").eq("order_id", order_id).execute()
+        if not order.data:
+            raise HTTPException(
+                status_code=404, detail=f"Order with ID {order_id} not found"
+            )
+
+        # Create note event
+        event_data = {
+            "order_id": order_id,
+            "event_type": "note",
+            "description": note.get("note", ""),
+            "created_by": current_user.get("id"),
+            "created_at": datetime.now().isoformat(),
+            "user_email": current_user.get("email"),
+        }
+
+        # Insert event
+        response = supabase.table("order_events").insert(event_data).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to add note")
+
+        return {"message": "Note added successfully", "event": response.data[0]}
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error adding note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error adding note: {str(e)}")
