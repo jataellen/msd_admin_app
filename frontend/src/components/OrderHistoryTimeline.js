@@ -1,97 +1,59 @@
+// OrderHistoryTimeline.js - A component to display the order history timeline
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box,
   Typography,
   Paper,
-  Divider,
-  CircularProgress,
-  Alert,
-  Tabs,
-  Tab,
   List,
   ListItem,
-  ListItemAvatar,
   ListItemText,
+  ListItemAvatar,
   Avatar,
   Chip,
   Button,
+  CircularProgress,
+  Alert,
+  Divider,
   TextField,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tooltip,
-  Badge,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   InputAdornment,
-  Pagination,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Grid
+  IconButton
 } from '@mui/material';
 
 // Material UI icons
 import {
-  History as HistoryIcon,
-  Person as PersonIcon,
-  Comment as CommentIcon,
   Timeline as TimelineIcon,
-  CheckCircle as CompleteIcon,
-  Add as AddIcon,
-  Refresh as RefreshIcon,
-  Edit as EditIcon,
-  Description as DocumentIcon,
-  Payment as PaymentIcon,
-  ArrowRight as ArrowRightIcon,
-  LocalShipping as DeliveryIcon,
-  Assignment as OrderIcon,
-  Event as EventIcon,
-  Info as InfoIcon,
+  Comment as CommentIcon,
+  History as HistoryIcon,
+  AddComment as AddCommentIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
   Clear as ClearIcon,
+  Person as PersonIcon,
+  Event as EventIcon,
   Send as SendIcon,
-  List as ListIcon
+  Assignment as AssignmentIcon,
+  Payment as PaymentIcon,
+  Description as DocumentIcon,
+  Create as CreateIcon,
+  Update as UpdateIcon
 } from '@mui/icons-material';
 
-// Constants for event types
+const API_URL = 'http://localhost:8000';
+
+// Event type definitions with icons and colors
 const EVENT_TYPES = {
-  'creation': { icon: <OrderIcon />, color: 'primary', label: 'Created' },
-  'update': { icon: <EditIcon />, color: 'info', label: 'Updated' },
-  'stage_change': { icon: <TimelineIcon />, color: 'primary', label: 'Stage Changed' },
-  'status_change': { icon: <TimelineIcon />, color: 'warning', label: 'Status Changed' },
-  'note': { icon: <CommentIcon />, color: 'secondary', label: 'Note Added' },
-  'document': { icon: <DocumentIcon />, color: 'info', label: 'Document' },
-  'payment': { icon: <PaymentIcon />, color: 'success', label: 'Payment' },
-  'delivery': { icon: <DeliveryIcon />, color: 'warning', label: 'Delivery' }
-};
-
-// API URL
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-// Helper function to format UUID for display
-const formatUserDisplay = (user) => {
-  if (!user) return 'Unknown';
-  
-  if (typeof user === 'object' && user.email) {
-    return user.email;
-  }
-  
-  // If it's a UUID, show truncated version
-  if (typeof user === 'string' && user.includes('-') && user.length > 30) {
-    return `User ${user.split('-')[0]}`;
-  }
-  
-  return user.toString();
+  'stage_change': { icon: <TimelineIcon />, color: 'primary', label: 'Stage Change' },
+  'note': { icon: <CommentIcon />, color: 'secondary', label: 'Note' },
+  'creation': { icon: <CreateIcon />, color: 'success', label: 'Created' },
+  'update': { icon: <UpdateIcon />, color: 'info', label: 'Updated' },
+  'document': { icon: <DocumentIcon />, color: 'warning', label: 'Document' },
+  'payment': { icon: <PaymentIcon />, color: 'error', label: 'Payment' },
+  'status_change': { icon: <AssignmentIcon />, color: 'info', label: 'Status Change' },
+  'default': { icon: <HistoryIcon />, color: 'default', label: 'Event' }
 };
 
 const OrderHistoryTimeline = ({ orderId }) => {
@@ -99,129 +61,72 @@ const OrderHistoryTimeline = ({ orderId }) => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({ 
-    total: 0, 
-    page: 1, 
-    limit: 50,
-    pages: 1
-  });
-  const [filters, setFilters] = useState({
-    eventType: '',
-    searchTerm: ''
-  });
-  const [addNoteOpen, setAddNoteOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [newNote, setNewNote] = useState('');
-  const [noteSubmitting, setNoteSubmitting] = useState(false);
-  const [tabValue, setTabValue] = useState(0);
-
-  // Fetch events when component mounts or filters change
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Fetch events on component mount
   useEffect(() => {
-    if (orderId) {
-      fetchEvents();
+    fetchEvents();
+  }, [orderId]);
+  
+  // Filter events based on search term
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredEvents(events);
+      return;
     }
-  }, [orderId, filters.eventType, pagination.page]);
-
-  // Function to fetch events from API
-const fetchEvents = async () => {
+    
+    const lowercasedSearch = searchTerm.toLowerCase();
+    const filtered = events.filter(event => 
+      (event.description && event.description.toLowerCase().includes(lowercasedSearch)) ||
+      (event.event_type && event.event_type.toLowerCase().includes(lowercasedSearch)) ||
+      (event.previous_stage && event.previous_stage.toLowerCase().includes(lowercasedSearch)) ||
+      (event.new_stage && event.new_stage.toLowerCase().includes(lowercasedSearch)) ||
+      (event.user_email && event.user_email.toLowerCase().includes(lowercasedSearch))
+    );
+    
+    setFilteredEvents(filtered);
+  }, [searchTerm, events]);
+  
+  // Fetch events from API
+  const fetchEvents = async () => {
+    if (!orderId) {
+      setError('No order ID provided');
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
+    setError(null);
     
     try {
-      // Update this URL to match the endpoint in your backend
-      let url = `${API_URL}/orders/${orderId}/history?limit=${pagination.limit}&skip=${(pagination.page - 1) * pagination.limit}`;
-      
-      if (filters.eventType) {
-        url += `&event_type=${filters.eventType}`;
-      }
-      
-      const response = await axios.get(url, { withCredentials: true });
+      const response = await axios.get(`${API_URL}/orders/${orderId}/history`, {
+        withCredentials: true
+      });
       
       if (response.data && response.data.events) {
-        // If search term is present, filter the results client-side
-        let filteredEvents = response.data.events;
-        if (filters.searchTerm) {
-          const searchLower = filters.searchTerm.toLowerCase();
-          filteredEvents = filteredEvents.filter(event => 
-            event.description.toLowerCase().includes(searchLower) ||
-            (event.user_email && event.user_email.toLowerCase().includes(searchLower)) ||
-            (event.previous_stage && event.previous_stage.toLowerCase().includes(searchLower)) ||
-            (event.new_stage && event.new_stage.toLowerCase().includes(searchLower))
-          );
-        }
-        
-        setEvents(filteredEvents);
-        
-        if (response.data.pagination) {
-          setPagination(response.data.pagination);
-        }
-      } else if (Array.isArray(response.data)) {
-        // Handle case where API returns array directly
-        let filteredEvents = response.data;
-        if (filters.searchTerm) {
-          const searchLower = filters.searchTerm.toLowerCase();
-          filteredEvents = filteredEvents.filter(event => 
-            event.description.toLowerCase().includes(searchLower) ||
-            (event.user_email && event.user_email.toLowerCase().includes(searchLower)) ||
-            (event.previous_stage && event.previous_stage.toLowerCase().includes(searchLower)) ||
-            (event.new_stage && event.new_stage.toLowerCase().includes(searchLower))
-          );
-        }
-        
-        setEvents(filteredEvents);
-        
-        // Set pagination based on array length
-        setPagination(prev => ({
-          ...prev,
-          total: filteredEvents.length,
-          pages: Math.ceil(filteredEvents.length / prev.limit)
-        }));
+        setEvents(response.data.events);
+        setFilteredEvents(response.data.events);
       } else {
         setEvents([]);
+        setFilteredEvents([]);
       }
     } catch (err) {
-      console.error('Error fetching order events:', err);
+      console.error('Error fetching order history:', err);
       setError('Failed to load order history. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  // Handle filter changes
-  const handleFilterChange = (name, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Reset pagination when filters change
-    if (name !== 'searchTerm') {
-      setPagination(prev => ({
-        ...prev,
-        page: 1
-      }));
-    }
-  };
-
-  // Handle tab change
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-
-  // Open add note dialog
-  const handleOpenAddNote = () => {
-    setAddNoteOpen(true);
-  };
-
-  // Close add note dialog
-  const handleCloseAddNote = () => {
-    setAddNoteOpen(false);
-    setNewNote('');
-  };
-
-  // Submit new note
-  const handleSubmitNote = async () => {
+  
+  // Add a note to the order
+  const handleAddNote = async () => {
     if (!newNote.trim()) return;
     
-    setNoteSubmitting(true);
+    setSubmitting(true);
     
     try {
       await axios.post(
@@ -230,18 +135,20 @@ const fetchEvents = async () => {
         { withCredentials: true }
       );
       
-      handleCloseAddNote();
+      // Close dialog and reset form
+      setNoteDialogOpen(false);
+      setNewNote('');
       
-      // Refresh events to show the new note
+      // Refresh events
       fetchEvents();
     } catch (err) {
       console.error('Error adding note:', err);
       setError('Failed to add note. Please try again.');
     } finally {
-      setNoteSubmitting(false);
+      setSubmitting(false);
     }
   };
-
+  
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -249,273 +156,56 @@ const fetchEvents = async () => {
     const date = new Date(dateString);
     return date.toLocaleString();
   };
-
-  // Get event icon based on type
-  const getEventIcon = (eventType) => {
-    return EVENT_TYPES[eventType]?.icon || <EventIcon />;
-  };
-
-  // Get event color based on type
-  const getEventColor = (eventType) => {
-    return EVENT_TYPES[eventType]?.color || 'default';
-  };
-
-  // Get event label based on type
-  const getEventLabel = (eventType) => {
-    return EVENT_TYPES[eventType]?.label || 'Event';
-  };
-
-  // Get user display name
-  const getUserDisplay = (event) => {
-    if (event.user_email) return event.user_email;
-    return formatUserDisplay(event.created_by);
-  };
-
-  // Render the timeline view
-  const renderTimelineView = () => {
-    if (loading && events.length === 0) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
-        </Box>
-      );
-    }
-    
-    if (events.length === 0) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography color="text.secondary">
-            {filters.eventType || filters.searchTerm
-              ? "No events found matching your filters."
-              : "No history available for this order yet."}
-          </Typography>
-        </Box>
-      );
-    }
-    
-    return (
-      <List>
-        {events.map((event, index) => (
-          <React.Fragment key={event.event_id}>
-            <ListItem
-              alignItems="flex-start"
-              sx={{
-                position: 'relative',
-                pl: 4,
-                '&:before': {
-                  content: '""',
-                  position: 'absolute',
-                  left: 20,
-                  top: 0,
-                  bottom: 0,
-                  width: 2,
-                  bgcolor: index === events.length - 1 ? 'transparent' : 'divider',
-                  zIndex: 1
-                }
-              }}
-            >
-              <ListItemAvatar>
-                <Badge
-                  overlap="circular"
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                  badgeContent={
-                    <Tooltip title={formatDate(event.created_at)}>
-                      <Avatar sx={{ width: 15, height: 15, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-                        <EventIcon sx={{ fontSize: 10 }} />
-                      </Avatar>
-                    </Tooltip>
-                  }
-                >
-                  <Avatar sx={{ bgcolor: `${getEventColor(event.event_type)}.main`, zIndex: 2 }}>
-                    {getEventIcon(event.event_type)}
-                  </Avatar>
-                </Badge>
-              </ListItemAvatar>
-              
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                    <Typography variant="subtitle1">
-                      {event.description}
-                    </Typography>
-                    <Chip
-                      label={getEventLabel(event.event_type)}
-                      size="small"
-                      color={getEventColor(event.event_type)}
-                      variant="outlined"
-                    />
-                  </Box>
-                }
-                secondary={
-                  <React.Fragment>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                      <PersonIcon fontSize="small" sx={{ mr: 0.5, fontSize: 14 }} />
-                      <Typography component="span" variant="body2" color="text.secondary">
-                        {getUserDisplay(event)}
-                      </Typography>
-                      <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                        {formatDate(event.created_at)}
-                      </Typography>
-                    </Box>
-                    
-                    {event.event_type === 'stage_change' && event.previous_stage && event.new_stage && (
-                      <Box sx={{ mt: 1, display: 'flex', alignItems: 'center' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          From: {event.previous_stage}
-                        </Typography>
-                        <ArrowRightIcon sx={{ mx: 1, fontSize: 16 }} />
-                        <Typography variant="body2" color="text.secondary">
-                          To: {event.new_stage}
-                        </Typography>
-                      </Box>
-                    )}
-                    
-                    {event.metadata && Object.keys(event.metadata).length > 0 && (
-                      <Box sx={{ mt: 1 }}>
-                        {event.event_type === 'payment' && (
-                          <Typography variant="body2">
-                            Amount: ${event.metadata.amount?.toFixed(2)} • Method: {event.metadata.payment_method?.replace('_', ' ')}
-                            {event.metadata.reference && ` • Ref: ${event.metadata.reference}`}
-                          </Typography>
-                        )}
-                        
-                        {event.event_type === 'document' && (
-                          <Typography variant="body2">
-                            {event.metadata.document_type}: {event.metadata.document_name}
-                          </Typography>
-                        )}
-                        
-                        {event.event_type === 'update' && (
-                          <Box sx={{ mt: 1 }}>
-                            {Object.entries(event.metadata || {}).map(([key, value], idx) => {
-                              if (key.startsWith('old_') || key.startsWith('new_')) return null;
-                              const field = key.replace('_', ' ');
-                              return (
-                                <Typography key={idx} variant="body2">
-                                  {field.charAt(0).toUpperCase() + field.slice(1)}: {value}
-                                </Typography>
-                              );
-                            })}
-                          </Box>
-                        )}
-                      </Box>
-                    )}
-                  </React.Fragment>
-                }
-              />
-            </ListItem>
-          </React.Fragment>
-        ))}
-      </List>
-    );
+  
+  // Get event type info
+  const getEventTypeInfo = (eventType) => {
+    return EVENT_TYPES[eventType] || EVENT_TYPES.default;
   };
   
-  // Render the list view
-  const renderListView = () => {
-    if (loading && events.length === 0) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress />
-        </Box>
-      );
+  // Get user display name
+  const getUserDisplay = (event) => {
+    if (!event) return 'Unknown';
+    
+    if (event.user_email) return event.user_email;
+    
+    // Format UUID for display
+    if (event.created_by && typeof event.created_by === 'string') {
+      return `User ${event.created_by.substring(0, 8)}...`;
     }
     
-    if (events.length === 0) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography color="text.secondary">
-            {filters.eventType || filters.searchTerm
-              ? "No events found matching your filters."
-              : "No history available for this order yet."}
-          </Typography>
-        </Box>
-      );
-    }
-    
-    return (
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Type</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Date/Time</TableCell>
-              <TableCell>User</TableCell>
-              <TableCell>Details</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {events.map((event) => (
-              <TableRow
-                key={event.event_id}
-                hover
-                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-              >
-                <TableCell>
-                  <Chip
-                    label={getEventLabel(event.event_type)}
-                    size="small"
-                    color={getEventColor(event.event_type)}
-                    icon={getEventIcon(event.event_type)}
-                  />
-                </TableCell>
-                <TableCell>{event.description}</TableCell>
-                <TableCell>{formatDate(event.created_at)}</TableCell>
-                <TableCell>{getUserDisplay(event)}</TableCell>
-                <TableCell>
-                  {event.event_type === 'stage_change' && (
-                    <Typography variant="body2">
-                      {event.previous_stage} → {event.new_stage}
-                    </Typography>
-                  )}
-                  
-                  {event.metadata && Object.keys(event.metadata).length > 0 && (
-                    <Tooltip 
-                      title={
-                        <div>
-                          {Object.entries(event.metadata).map(([key, value]) => (
-                            <div key={key}>{key}: {JSON.stringify(value)}</div>
-                          ))}
-                        </div>
-                      }
-                    >
-                      <IconButton size="small">
-                        <InfoIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
+    return 'Unknown User';
   };
-
+  
+  // Loading state
+  if (loading && events.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
   return (
-    <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Paper sx={{ p: 3 }} elevation={0} variant="outlined">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <HistoryIcon sx={{ mr: 1 }} />
+          <HistoryIcon sx={{ mr: 1 }} color="primary" />
           <Typography variant="h6">Order History</Typography>
         </Box>
         
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="outlined"
-            startIcon={<CommentIcon />}
-            onClick={handleOpenAddNote}
-            size="small"
+            startIcon={<AddCommentIcon />}
+            onClick={() => setNoteDialogOpen(true)}
           >
             Add Note
           </Button>
           
           <Button
             variant="outlined"
-            startIcon={<RefreshIcon />}
+            startIcon={<HistoryIcon />}
             onClick={fetchEvents}
-            size="small"
             disabled={loading}
           >
             Refresh
@@ -523,77 +213,48 @@ const fetchEvents = async () => {
         </Box>
       </Box>
       
-      <Divider sx={{ mb: 2 }} />
+      <Divider sx={{ mb: 3 }} />
       
-      {/* Filters */}
+      {/* Search Bar */}
       <Box sx={{ mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              placeholder="Search in history..."
-              size="small"
-              value={filters.searchTerm}
-              onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: filters.searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton 
-                      edge="end" 
-                      size="small"
-                      onClick={() => handleFilterChange('searchTerm', '')}
-                    >
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="event-type-label">Event Type</InputLabel>
-              <Select
-                labelId="event-type-label"
-                value={filters.eventType}
-                label="Event Type"
-                onChange={(e) => handleFilterChange('eventType', e.target.value)}
-              >
-                <MenuItem value="">All Events</MenuItem>
-                {Object.entries(EVENT_TYPES).map(([type, data]) => (
-                  <MenuItem key={type} value={type}>
-                    {data.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} md={4}>
-            <Tabs 
-              value={tabValue} 
-              onChange={handleTabChange}
-              variant="fullWidth"
-            >
-              <Tab icon={<TimelineIcon />} label="Timeline" />
-              <Tab icon={<ListIcon />} label="List" />
-            </Tabs>
-          </Grid>
-        </Grid>
+        <TextField
+          fullWidth
+          placeholder="Search in history..."
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+            endAdornment: searchTerm && (
+              <InputAdornment position="end">
+                <IconButton
+                  edge="end"
+                  size="small"
+                  onClick={() => setSearchTerm('')}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            )
+          }}
+        />
       </Box>
       
+      {/* Error Display */}
       {error && (
         <Alert 
           severity="error" 
-          sx={{ mb: 2 }}
+          sx={{ mb: 3 }}
           action={
-            <Button color="inherit" size="small" onClick={fetchEvents}>
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={fetchEvents}
+            >
               Retry
             </Button>
           }
@@ -602,83 +263,185 @@ const fetchEvents = async () => {
         </Alert>
       )}
       
-      {/* Event Display */}
-      <Box sx={{ mb: 2, maxHeight: 500, overflow: 'auto' }}>
-        <TabPanel value={tabValue} index={0}>
-          {renderTimelineView()}
-        </TabPanel>
-        
-        <TabPanel value={tabValue} index={1}>
-          {renderListView()}
-        </TabPanel>
-      </Box>
-      
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-          <Pagination
-            count={pagination.pages}
-            page={pagination.page}
-            onChange={(e, page) => setPagination(prev => ({ ...prev, page }))}
-            disabled={loading}
-            color="primary"
-          />
+      {/* Events List */}
+      {filteredEvents.length === 0 ? (
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary" gutterBottom>
+            {searchTerm 
+              ? "No events found matching your search criteria." 
+              : "No history events available for this order."}
+          </Typography>
+          
+          {searchTerm ? (
+            <Button 
+              variant="text" 
+              color="primary"
+              startIcon={<ClearIcon />}
+              onClick={() => setSearchTerm('')}
+              sx={{ mt: 1 }}
+            >
+              Clear Search
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              startIcon={<AddCommentIcon />}
+              onClick={() => setNoteDialogOpen(true)}
+              sx={{ mt: 2 }}
+            >
+              Add First Note
+            </Button>
+          )}
         </Box>
+      ) : (
+        <List sx={{ 
+          maxHeight: 500, 
+          overflow: 'auto',
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+          }
+        }}>
+          {filteredEvents.map((event, index) => {
+            const eventTypeInfo = getEventTypeInfo(event.event_type);
+            
+            return (
+              <ListItem 
+                key={event.event_id || index}
+                alignItems="flex-start"
+                sx={{ 
+                  position: 'relative',
+                  borderLeft: '2px solid',
+                  borderLeftColor: `${eventTypeInfo.color}.main`,
+                  mb: 2,
+                  pl: 2,
+                  pt: 1,
+                  pb: 1.5,
+                  bgcolor: 'background.paper',
+                  borderRadius: '0 4px 4px 0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  '&:hover': {
+                    bgcolor: 'action.hover'
+                  }
+                }}
+              >
+                <ListItemAvatar>
+                  <Avatar 
+                    sx={{ 
+                      bgcolor: `${eventTypeInfo.color}.main`,
+                    }}
+                  >
+                    {eventTypeInfo.icon}
+                  </Avatar>
+                </ListItemAvatar>
+                
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                        {event.description}
+                      </Typography>
+                      
+                      <Chip 
+                        label={eventTypeInfo.label}
+                        color={eventTypeInfo.color}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                  }
+                  secondary={
+                    <Box sx={{ mt: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '0.875rem' }}>
+                        <PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary" component="span">
+                          {getUserDisplay(event)}
+                        </Typography>
+                        
+                        <Box sx={{ mx: 1, color: 'text.disabled' }}>•</Box>
+                        
+                        <EventIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary" component="span">
+                          {formatDate(event.created_at)}
+                        </Typography>
+                      </Box>
+                      
+                      {event.event_type === 'stage_change' && event.previous_stage && event.new_stage && (
+                        <Box sx={{ 
+                          mt: 1, 
+                          p: 1, 
+                          bgcolor: 'background.default',
+                          borderRadius: 1,
+                          fontSize: '0.875rem'
+                        }}>
+                          <Typography variant="body2">
+                            Stage changed from <b>{event.previous_stage}</b> to <b>{event.new_stage}</b>
+                          </Typography>
+                        </Box>
+                      )}
+                      
+                      {event.metadata && Object.keys(event.metadata).length > 0 && (
+                        <Box sx={{ 
+                          mt: 1, 
+                          p: 1, 
+                          bgcolor: 'background.default',
+                          borderRadius: 1
+                        }}>
+                          {Object.entries(event.metadata).map(([key, value]) => (
+                            <Typography key={key} variant="body2">
+                              <b>{key.replace(/_/g, ' ')}:</b> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                            </Typography>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  }
+                />
+              </ListItem>
+            );
+          })}
+        </List>
       )}
       
       {/* Add Note Dialog */}
-      <Dialog open={addNoteOpen} onClose={handleCloseAddNote} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Note to Order</DialogTitle>
+      <Dialog 
+        open={noteDialogOpen} 
+        onClose={() => setNoteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add Note to Order History</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
-            margin="dense"
-            label="Note"
-            fullWidth
             multiline
             rows={4}
-            variant="outlined"
+            label="Note"
+            fullWidth
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
+            margin="dense"
             placeholder="Enter your note about this order..."
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseAddNote}>Cancel</Button>
+          <Button onClick={() => setNoteDialogOpen(false)}>Cancel</Button>
           <Button 
-            onClick={handleSubmitNote} 
             variant="contained" 
             color="primary"
-            disabled={!newNote.trim() || noteSubmitting}
-            startIcon={noteSubmitting ? <CircularProgress size={20} /> : <SendIcon />}
+            startIcon={submitting ? <CircularProgress size={20} /> : <SendIcon />}
+            onClick={handleAddNote}
+            disabled={!newNote.trim() || submitting}
           >
-            {noteSubmitting ? 'Saving...' : 'Add Note'}
+            {submitting ? 'Adding...' : 'Add Note'}
           </Button>
         </DialogActions>
       </Dialog>
     </Paper>
   );
 };
-
-// TabPanel component for the tabs
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
 
 export default OrderHistoryTimeline;

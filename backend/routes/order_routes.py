@@ -893,3 +893,24 @@ async def update_order_status(
         raise HTTPException(
             status_code=500, detail=f"Error updating order status: {str(e)}"
         )
+
+
+@router.get("/workflow-stages")
+async def get_workflow_stages_by_type(
+    workflow_type: str = Query(..., description="Type of workflow")
+):
+    """Get workflow stages for a specific workflow type"""
+    if workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid workflow type. Must be MATERIALS_ONLY or MATERIALS_AND_INSTALLATION",
+        )
+
+    stages = []
+
+    if workflow_type == "MATERIALS_ONLY":
+        stages = MATERIALS_ONLY_STAGES
+    else:
+        stages = MATERIALS_AND_INSTALLATION_STAGES
+
+    return {"stages": stages}

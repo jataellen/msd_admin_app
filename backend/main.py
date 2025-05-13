@@ -1,4 +1,5 @@
-# main.py
+# Fix for main.py to include workflow routes
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from auth import auth_middleware
@@ -8,6 +9,9 @@ from routes.auth_routes import router as auth_router
 from routes.order_routes import router as order_router
 from routes.task_routes import router as task_router
 from routes.quickbooks_routes import router as quickbooks_router
+from routes.workflow_routes import (
+    router as workflow_router,
+)  # Import the new workflow router
 
 app = FastAPI()
 
@@ -28,6 +32,7 @@ app.include_router(auth_router)
 app.include_router(order_router)
 app.include_router(task_router)
 app.include_router(quickbooks_router)
+app.include_router(workflow_router)  # Include the workflow router
 
 
 @app.get("/")

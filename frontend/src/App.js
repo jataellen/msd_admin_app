@@ -207,7 +207,9 @@ const AppContent = () => {
             <Route path="/orders/add" element={<OrderForm />} />
             <Route path="/orders/:id/edit" element={<OrderForm />} />
             {/* Add the new OrderTrackingPage route */}
-            <Route path="/order-tracking" element={<OrderTrackingPage />} />
+            {/* <Route path="/order-tracking" element={<OrderTrackingPage />} /> */}
+            <Route path="/order-tracking/:id" element={<OrderTrackingPage />} />
+            <Route path="/order-tracking" element={<OrderList />} />
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
             <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />
