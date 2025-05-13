@@ -6,6 +6,7 @@ import logging
 from database import supabase
 from auth import get_current_user
 from pydantic import BaseModel, Field
+from resources.workflow_constants import *
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -745,3 +746,150 @@ async def add_order_note(
     except Exception as e:
         logger.error(f"Error adding note: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error adding note: {str(e)}")
+
+
+@router.get("/workflow-stages")
+async def get_workflow_stages(
+    workflow_type: str = Query(..., description="Type of workflow")
+):
+    """Get workflow stages for a specific workflow type"""
+    if workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid workflow type. Must be MATERIALS_ONLY or MATERIALS_AND_INSTALLATION",
+        )
+
+    stages = get_workflow_stages(workflow_type)
+    return {"stages": stages}
+
+
+@router.post("/")
+async def create_order(
+    order: OrderCreate, current_user: dict = Depends(get_current_user)
+):
+    """Create a new order with workflow stages"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Validate workflow type
+        if order.workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
+            raise HTTPException(status_code=400, detail="Invalid workflow type")
+
+        # Validate selected stages
+
+        valid_stage_ids = [
+            stage["id"] for stage in get_workflow_stages(order.workflow_type)
+        ]
+
+        for stage_id in order.selected_stages:
+            if stage_id not in valid_stage_ids:
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid stage ID: {stage_id}"
+                )
+
+        # Set initial status (first status of first selected stage)
+        stages = get_workflow_stages(order.workflow_type)
+        initial_status = None
+
+        for stage in stages:
+            if stage["id"] in order.selected_stages and stage["statuses"]:
+                initial_status = stage["statuses"][0]["id"]
+                break
+
+        # Prepare order data with workflow information
+        now = datetime.now().isoformat()
+        order_data = order.dict()
+        order_data["created_at"] = now
+        order_data["updated_at"] = now
+        order_data["current_stage"] = initial_status
+        order_data["completed_stages"] = []
+
+        # Insert order into database
+        response = supabase.table("orders").insert(order_data).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to create order")
+
+        return response.data[0]
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error creating order: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating order: {str(e)}")
+
+
+@router.post("/{order_id}/update-status")
+async def update_order_status(
+    order_id: int, new_status, notes, current_user: dict = Depends(get_current_user)
+):
+    """Update order status in workflow"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Get the order
+        order_response = (
+            supabase.table("orders").select("*").eq("order_id", order_id).execute()
+        )
+
+        if not order_response.data:
+            raise HTTPException(status_code=404, detail="Order not found")
+
+        order = order_response.data[0]
+
+        # Validate the new status
+
+        stages = get_workflow_stages(order["workflow_type"])
+        all_statuses = [status["id"] for status in get_all_statuses(stages)]
+
+        if new_status not in all_statuses:
+            raise HTTPException(status_code=400, detail="Invalid status")
+
+        # Get current status and previous status
+        current_status = order["current_stage"]
+
+        # Get timestamp for the status change
+        now = datetime.now().isoformat()
+
+        # Update the completed_stages array with the current status being completed
+        completed_stages = order.get("completed_stages", [])
+
+        # Add current status to completed stages
+        if current_status:
+            completed_stages.append(
+                {
+                    "status": current_status,
+                    "completed_at": now,
+                    "completed_by": current_user.get("id"),
+                    "notes": notes,
+                }
+            )
+
+        # Update the order
+        update_data = {
+            "current_stage": new_status,
+            "completed_stages": completed_stages,
+            "updated_at": now,
+        }
+
+        response = (
+            supabase.table("orders")
+            .update(update_data)
+            .eq("order_id", order_id)
+            .execute()
+        )
+
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to update order status")
+
+        return response.data[0]
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error updating order status: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error updating order status: {str(e)}"
+        )

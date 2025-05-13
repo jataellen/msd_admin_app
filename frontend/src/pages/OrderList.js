@@ -94,7 +94,7 @@ const OrderList = () => {
         }
         
         // Fetch order priorities
-        const prioritiesResponse = await axios.get(`${API_URL}/order-priorities`, {
+        const prioritiesResponse = await axios.get(`${API_URL}/orders/order-priorities`, {
           withCredentials: true
         });
         
@@ -323,7 +323,7 @@ const OrderList = () => {
               sx={{ 
                 cursor: 'pointer',
                 bgcolor: statusFilter === status ? `${getStatusColor(status)}.50` : 'inherit',
-                borderColor: statusFilter === status ? `${getStatusColor(status)}.main` : 'inherit',
+                borderColor: statusFilter === status ? `${getStatusColor(status)}.main` : 'inherit'
               }}
               onClick={() => handleStatusFilterChange({ target: { value: statusFilter === status ? '' : status } })}
             >
@@ -336,7 +336,7 @@ const OrderList = () => {
                     label={statusCounts[status] || 0} 
                     color={getStatusColor(status)} 
                     size="small"
-                    sx={{ minWidth: 30 }}
+                    sx={{ minWidth: 30, ml: 1}}
                   />
                 </Box>
               </CardContent>

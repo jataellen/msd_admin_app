@@ -1,367 +1,212 @@
-// src/pages/OrderTrackingPage.js
-import React, { useState, useEffect } from 'react';
-import { useNavigate} from 'react-router-dom';
-import axios from 'axios';
+// OrderTrackingPage.js - React component for the order tracking view
 
-// Material UI imports
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
   Box,
   Typography,
   Paper,
-  Grid,
-  Card,
-  CardContent,
-  Button,
-  CircularProgress,
-  Alert,
   Stepper,
   Step,
   StepLabel,
   StepContent,
+  Button,
+  CircularProgress,
+  Alert,
   Divider,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
-  TextField,
-  InputAdornment,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
+  TextField,
+  Chip
 } from '@mui/material';
 
-// Material UI icons
-import {
-  Search as SearchIcon,
-  Clear as ClearIcon,
-  Refresh as RefreshIcon,
-  Assignment as AssignmentIcon,
-  Check as CheckIcon,
-  Add as AddIcon,
-  Edit as EditIcon
-} from '@mui/icons-material';
-
-// API URL
-// const API_URL = process.env.REACT_APP_API_URL || 'https://msdadminapp-production.up.railway.app';
-const API_URL = 'http://localhost:8000';
-// Workflow stages for different order types
-const WORKFLOW_STAGES = {
-  "MATERIALS_ONLY": [
-    "Quote Requested",
-    "Quote Provided",
-    "Quote Accepted",
-    "Purchase Order Created",
-    "Supplier Confirmed",
-    "Materials Received",
-    "Customer Notified",
-    "Materials Delivered/Picked Up",
-    "Invoice Sent",
-    "Payment Received",
-    "Order Completed",
-  ],
-  "MATERIALS_AND_INSTALLATION": [
-    "Initial Inquiry",
-    "Site Visit Scheduled",
-    "Site Visit Completed",
-    "Quote Created",
-    "Quote Sent",
-    "Quote Accepted",
-    "Work Order Created",
-    "Work Order Signed",
-    "Deposit Received",
-    "Detailed Measurement",
-    "Purchase Orders Created",
-    "Materials Ordered",
-    "Installation Scheduled",
-    "Materials Received",
-    "Installation Begun",
-    "Installation Completed",
-    "Final Invoice Sent",
-    "Payment Received",
-    "Review Requested",
-    "Order Completed",
-  ],
-};
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const OrderTrackingPage = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
   
-  // State variables
-  const [orders, setOrders] = useState([]);
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  // State
+  const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [stageUpdateDialog, setStageUpdateDialog] = useState(false);
-  const [newStageData, setNewStageData] = useState({
-    stage: '',
-    notes: ''
-  });
+  const [workflowStages, setWorkflowStages] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState(null);
+  const [statusNote, setStatusNote] = useState('');
   const [updateLoading, setUpdateLoading] = useState(false);
-  const [taskDialog, setTaskDialog] = useState(false);
-  const [taskFormData, setTaskFormData] = useState({
-    title: '',
-    status: 'Open',
-    priority: 'Medium',
-    assigned_to: '',
-    description: '',
-    due_date: ''
-  });
   
-  // Fetch orders
+  // Fetch order data
   useEffect(() => {
-    fetchOrders();
-  }, []);
-  
-  const fetchOrders = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await axios.get(`${API_URL}/orders`, {
-        withCredentials: true
-      });
-      
-      if (response.data && Array.isArray(response.data)) {
-        setOrders(response.data);
-      } else if (response.data && response.data.orders) {
-        setOrders(response.data.orders);
-      } else {
-        setOrders([]);
+    const fetchOrderData = async () => {
+      // Validate the id parameter before making any API calls
+      if (!id || id === 'undefined' || isNaN(parseInt(id))) {
+        console.error('Invalid order ID:', id);
+        setError('Invalid order ID. Please select a valid order.');
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError('Failed to load orders. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      
+      setLoading(true);
+      try {
+        // Use a valid numeric ID for the API call
+        const orderId = parseInt(id);
+        
+        // Fetch order details
+        const orderResponse = await axios.get(`${API_URL}/orders/${orderId}`, {
+          withCredentials: true
+        });
+        
+        if (orderResponse.data && orderResponse.data.order) {
+          setOrder(orderResponse.data.order);
+          
+          // Fetch workflow stages
+          const stagesResponse = await axios.get(
+            `${API_URL}/workflow-stages?workflow_type=${orderResponse.data.order.workflow_type}`,
+            { withCredentials: true }
+          );
+          
+          if (stagesResponse.data && stagesResponse.data.stages) {
+            // Filter to only show selected stages
+            const selectedStages = stagesResponse.data.stages.filter(
+              stage => orderResponse.data.order.selected_stages.includes(stage.id)
+            );
+            
+            setWorkflowStages(selectedStages);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching order data:', err);
+        setError('Failed to load order data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchOrderData();
+  }, [id, navigate]);
+  
+  // Handle status completion
+  const handleCompleteStatus = (status) => {
+    setSelectedStatus(status);
+    setStatusNote('');
+    setDialogOpen(true);
   };
   
-  // Filter orders based on search term
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredOrders(orders);
-      return;
-    }
+  // Handle submit status update
+  const handleSubmitStatusUpdate = async () => {
+    if (!selectedStatus) return;
     
-    const lowercasedSearch = searchTerm.toLowerCase();
-    const filtered = orders.filter(order => 
-      (order.order_name && order.order_name.toLowerCase().includes(lowercasedSearch)) ||
-      (order.customer_id && order.customer_id.toString().includes(lowercasedSearch)) ||
-      (order.status && order.status.toLowerCase().includes(lowercasedSearch)) ||
-      (order.current_stage && order.current_stage.toLowerCase().includes(lowercasedSearch)) ||
-      (order.location && order.location.toLowerCase().includes(lowercasedSearch))
-    );
-    
-    setFilteredOrders(filtered);
-  }, [searchTerm, orders]);
-  
-  // Handle order selection
-  const handleSelectOrder = (order) => {
-    setSelectedOrder(order);
-    
-    // If no current_stage is set, fetch order details to get full data
-    if (!order.current_stage || !order.completed_stages) {
-      fetchOrderDetails(order.order_id);
-    }
-  };
-  
-  // Handle stage update dialog
-  const handleOpenStageDialog = (stage) => {
-    setNewStageData({
-      stage,
-      notes: ''
-    });
-    setStageUpdateDialog(true);
-  };
-  
-  // Handle stage update
-  const handleUpdateStage = async () => {
-    if (!selectedOrder || !newStageData.stage) {
-      setStageUpdateDialog(false);
+    // Validate ID before making the API call
+    if (!id || id === 'undefined' || isNaN(parseInt(id))) {
+      setError('Invalid order ID. Please select a valid order.');
+      setDialogOpen(false);
       return;
     }
     
     setUpdateLoading(true);
     
     try {
+      // Use a valid numeric ID for the API call
+      const orderId = parseInt(id);
+      
       const response = await axios.post(
-        `${API_URL}/orders/${selectedOrder.order_id}/update-stage`,
-        newStageData,
+        `${API_URL}/orders/${orderId}/update-status`,
+        { 
+          new_status: selectedStatus.id,
+          notes: statusNote || null
+        },
         { withCredentials: true }
       );
       
+      // Update local state with new order data
       if (response.data) {
-        // Update the order in state
-        const updatedOrder = response.data;
-        setOrders(orders.map(o => o.order_id === updatedOrder.order_id ? updatedOrder : o));
-        setSelectedOrder(updatedOrder);
+        setOrder(response.data);
       }
       
-      setStageUpdateDialog(false);
+      setDialogOpen(false);
     } catch (err) {
-      console.error('Error updating stage:', err);
-      setError('Failed to update stage. Please try again.');
+      console.error('Error updating status:', err);
+      setError('Failed to update status. Please try again.');
     } finally {
       setUpdateLoading(false);
     }
   };
   
-  // Handle new task creation
-  const handleCreateTask = async () => {
-    if (!taskFormData.title || !selectedOrder) {
-      setTaskDialog(false);
-      return;
-    }
+  // Check if a status is completed
+  const isStatusCompleted = (statusId) => {
+    if (!order || !order.completed_stages) return false;
     
-    setUpdateLoading(true);
-    
-    try {
-    //   const response = await axios.post(
-    //     `${API_URL}/tasks`,
-    //     {
-    //       ...taskFormData,
-    //       order_id: selectedOrder.order_id,
-    //       created_by: 1  // In real app, this would be the current user's ID
-    //     },
-    //     { withCredentials: true }
-    //   );
-      
-      // Close dialog and reset form
-      setTaskDialog(false);
-      setTaskFormData({
-        title: '',
-        status: 'Open',
-        priority: 'Medium',
-        assigned_to: '',
-        description: '',
-        due_date: ''
-      });
-      
-      // Fetch updated order data
-      fetchOrderDetails(selectedOrder.order_id);
-    } catch (err) {
-      console.error('Error creating task:', err);
-      setError('Failed to create task. Please try again.');
-    } finally {
-      setUpdateLoading(false);
-    }
+    return order.completed_stages.some(stage => stage.status === statusId);
   };
   
-  // Fetch detailed order data
-  const fetchOrderDetails = async (orderId) => {
-    setLoading(true);
+  // Get status completion info
+  const getStatusCompletionInfo = (statusId) => {
+    if (!order || !order.completed_stages) return null;
     
-    try {
-      const response = await axios.get(`${API_URL}/orders/${orderId}`, {
-        withCredentials: true
-      });
-      
-      if (response.data) {
-        // Update the order in both lists
-        const updatedOrder = response.data.order || response.data;
-        setOrders(orders.map(o => o.order_id === updatedOrder.order_id ? updatedOrder : o));
-        setSelectedOrder(updatedOrder);
-      }
-    } catch (err) {
-      console.error('Error fetching order details:', err);
-    } finally {
-      setLoading(false);
-    }
+    return order.completed_stages.find(stage => stage.status === statusId);
   };
   
   // Format date
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
-  };
-  
-  // Format currency
-  const formatCurrency = (amount) => {
-    if (amount === null || amount === undefined) return 'N/A';
-    return `$${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-  
-  // Get status color
-  const getStatusColor = (status) => {
-    if (!status) return 'default';
+    if (!dateString) return '';
     
-    switch (status) {
-      case 'Lead':
-        return 'info';
-      case 'Quoted':
-        return 'secondary';
-      case 'Active':
-        return 'primary';
-      case 'On Hold':
-        return 'warning';
-      case 'Completed':
-        return 'success';
-      case 'Cancelled':
-        return 'error';
-      default:
-        return 'default';
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
+  
+  // Get active step index
+  const getActiveStep = () => {
+    if (!order || !workflowStages.length) return 0;
+    
+    // Calculate total steps completed
+    let stepsCompleted = 0;
+    let foundCurrent = false;
+    
+    for (const stage of workflowStages) {
+      for (const status of stage.statuses) {
+        // If we've found the current status, return the step count
+        if (status.id === order.current_stage) {
+          foundCurrent = true;
+          return stepsCompleted;
+        }
+        
+        // Otherwise, if it's completed, increment the count
+        if (isStatusCompleted(status.id)) {
+          stepsCompleted++;
+        }
+      }
     }
+    
+    // If we didn't find the current status, return 0
+    return 0;
   };
   
-  // Get priority color
-  const getPriorityColor = (priority) => {
-    if (!priority) return 'default';
+  // Flatten statuses into a single list
+  const getAllStatuses = () => {
+    const statuses = [];
     
-    switch (priority) {
-      case 'Critical':
-      case 'Urgent':
-        return 'error';
-      case 'High':
-        return 'warning';
-      case 'Medium':
-        return 'info';
-      case 'Low':
-        return 'success';
-      default:
-        return 'default';
+    for (const stage of workflowStages) {
+      for (const status of stage.statuses) {
+        statuses.push({
+          ...status,
+          stage: stage.name
+        });
+      }
     }
-  };
-  
-  // Get workflow stages based on order type
-  const getWorkflowStages = (order) => {
-    if (!order) return [];
     
-    const orderType = order.type || 'MATERIALS_ONLY';
-    return WORKFLOW_STAGES[orderType] || WORKFLOW_STAGES['MATERIALS_ONLY'];
+    return statuses;
   };
   
-  // Determine current stage index
-  const getCurrentStageIndex = (order) => {
-    if (!order || !order.current_stage) return 0;
-    
-    const stages = getWorkflowStages(order);
-    const index = stages.indexOf(order.current_stage);
-    return index >= 0 ? index : 0;
+  // Handle navigation back to orders
+  const handleBackToOrders = () => {
+    navigate('/orders');
   };
   
-  // Check if a stage is completed
-  const isStageCompleted = (order, stage) => {
-    if (!order || !order.completed_stages) return false;
-    
-    return order.completed_stages.some(s => s.stage === stage);
-  };
-  
-  // Get stage completion info
-  const getStageCompletionInfo = (order, stage) => {
-    if (!order || !order.completed_stages) return null;
-    
-    return order.completed_stages.find(s => s.stage === stage);
-  };
-  
-  if (loading && orders.length === 0) {
+  if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />
@@ -369,509 +214,155 @@ const OrderTrackingPage = () => {
     );
   }
   
+  if (error) {
+    return (
+      <Alert 
+        severity="error" 
+        sx={{ mt: 2 }}
+        action={
+          <Button color="inherit" size="small" onClick={handleBackToOrders}>
+            Back to Orders
+          </Button>
+        }
+      >
+        {error}
+      </Alert>
+    );
+  }
+  
+  if (!order) {
+    return (
+      <Alert 
+        severity="warning" 
+        sx={{ mt: 2 }}
+        action={
+          <Button color="inherit" size="small" onClick={handleBackToOrders}>
+            Back to Orders
+          </Button>
+        }
+      >
+        Order not found.
+      </Alert>
+    );
+  }
+  
+  const activeStep = getActiveStep();
+  const allStatuses = getAllStatuses();
+  
   return (
     <Box sx={{ maxWidth: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Order Tracking
+      <Typography variant="h4" component="h1" gutterBottom>
+        Order Tracking: {order.order_name}
+      </Typography>
+      
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1">
+          Workflow Type: {order.workflow_type === 'MATERIALS_AND_INSTALLATION' ? 'Materials & Installation' : 'Materials Only'}
         </Typography>
         
-        <Box>
-          <Button 
-            variant="outlined" 
-            startIcon={<RefreshIcon />}
-            onClick={fetchOrders}
-            disabled={loading}
-            sx={{ mr: 1 }}
-          >
-            Refresh
-          </Button>
-          
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/orders/add')}
-          >
-            New Order
-          </Button>
-        </Box>
+        {order.current_stage && (
+          <Typography variant="subtitle1">
+            Current Status: 
+            <Chip 
+              label={allStatuses.find(s => s.id === order.current_stage)?.name || order.current_stage}
+              color="primary"
+              sx={{ ml: 1 }}
+            />
+          </Typography>
+        )}
       </Box>
       
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-      
-      <Grid container spacing={3}>
-        {/* Order List Section */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: '100%' }}>
-            <Box sx={{ mb: 2 }}>
-              <TextField
-                fullWidth
-                placeholder="Search orders"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  endAdornment: searchTerm && (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setSearchTerm("")}
-                        edge="end"
-                      >
-                        <ClearIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Box>
-            
-            <Typography variant="h6" gutterBottom>
-              Orders
-            </Typography>
-            
-            <Divider sx={{ mb: 2 }} />
-            
-            {loading && !selectedOrder ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <CircularProgress />
-              </Box>
-            ) : filteredOrders.length === 0 ? (
-              <Typography color="text.secondary" align="center" sx={{ p: 3 }}>
-                No orders found.
-              </Typography>
-            ) : (
-              <List sx={{ maxHeight: 'calc(100vh - 280px)', overflow: 'auto' }}>
-                {filteredOrders.map((order) => (
-                  <ListItem 
-                    key={order.order_id}
-                    button
-                    selected={selectedOrder && selectedOrder.order_id === order.order_id}
-                    onClick={() => handleSelectOrder(order)}
-                    alignItems="flex-start"
-                    sx={{ 
-                      mb: 1, 
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: (selectedOrder && selectedOrder.order_id === order.order_id) 
-                        ? 'action.selected' 
-                        : 'background.paper'
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle1">
-                          {order.order_name}
-                        </Typography>
-                      }
-                      secondary={
-                        <React.Fragment>
-                          <Typography variant="body2" color="text.secondary">
-                            Order #{order.order_id} • {order.type || 'Materials Only'}
-                          </Typography>
-                          <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                            <Chip 
-                              size="small" 
-                              label={order.status} 
-                              color={getStatusColor(order.status)}
-                            />
-                            {order.current_stage && (
-                              <Chip 
-                                size="small"
-                                label={order.current_stage}
-                                variant="outlined"
-                              />
-                            )}
-                          </Box>
-                        </React.Fragment>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Paper>
-        </Grid>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          Workflow Progress
+        </Typography>
         
-        {/* Order Details and Tracking Section */}
-        <Grid item xs={12} md={8}>
-          {selectedOrder ? (
-            <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-                <Box>
-                  <Typography variant="h5" gutterBottom>
-                    {selectedOrder.order_name}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <Divider sx={{ mb: 3 }} />
+        
+        {allStatuses.length > 0 ? (
+          <Stepper activeStep={activeStep} orientation="vertical">
+            {allStatuses.map((status, index) => (
+              <Step key={status.id} completed={isStatusCompleted(status.id)}>
+                <StepLabel>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography variant="body1" fontWeight={500}>
+                      {status.name}
+                    </Typography>
                     <Chip 
-                      label={selectedOrder.status} 
-                      color={getStatusColor(selectedOrder.status)}
+                      label={status.stage}
+                      size="small"
+                      variant="outlined"
+                      sx={{ ml: 1 }}
                     />
-                    {selectedOrder.priority && (
-                      <Chip 
-                        label={selectedOrder.priority} 
-                        color={getPriorityColor(selectedOrder.priority)}
-                        variant="outlined"
-                      />
-                    )}
-                    {selectedOrder.type && (
-                      <Chip 
-                        label={selectedOrder.type.replace('_', ' & ')} 
-                        variant="outlined"
-                      />
-                    )}
                   </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Created: {formatDate(selectedOrder.created_at)} • Last Updated: {formatDate(selectedOrder.updated_at)}
-                  </Typography>
-                </Box>
-                
-                <Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<EditIcon />}
-                    onClick={() => navigate(`/orders/${selectedOrder.order_id}/edit`)}
-                    sx={{ mr: 1 }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="contained"
-                    startIcon={<AssignmentIcon />}
-                    onClick={() => setTaskDialog(true)}
-                  >
-                    Add Task
-                  </Button>
-                </Box>
-              </Box>
-              
-              {/* Order Summary Cards */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Customer
+                </StepLabel>
+                <StepContent>
+                  {isStatusCompleted(status.id) ? (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Completed on: {formatDate(getStatusCompletionInfo(status.id)?.completed_at)}
                       </Typography>
-                      <Typography variant="body1">
-                        ID: {selectedOrder.customer_id || 'N/A'}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Budget
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatCurrency(selectedOrder.budget)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Start Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(selectedOrder.start_date)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                
-                <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Target Completion
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(selectedOrder.target_completion_date)}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-              
-              {/* Workflow Tracking */}
-              <Typography variant="h6" gutterBottom>
-                Workflow Progress
-              </Typography>
-              
-              <Divider sx={{ mb: 3 }} />
-              
-              <Stepper activeStep={getCurrentStageIndex(selectedOrder)} orientation="vertical">
-                {getWorkflowStages(selectedOrder).map((stage, index) => (
-                  <Step key={stage} completed={isStageCompleted(selectedOrder, stage)}>
-                    <StepLabel>
-                      <Typography variant="subtitle1">
-                        {stage}
-                      </Typography>
-                    </StepLabel>
-                    <StepContent>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {isStageCompleted(selectedOrder, stage) ? (
-                            <>
-                              Completed on {formatDate(getStageCompletionInfo(selectedOrder, stage)?.completed_at)}
-                              {getStageCompletionInfo(selectedOrder, stage)?.notes && (
-                                <Box sx={{ mt: 1 }}>
-                                  <Typography variant="body2">
-                                    Notes: {getStageCompletionInfo(selectedOrder, stage).notes}
-                                  </Typography>
-                                </Box>
-                              )}
-                            </>
-                          ) : (
-                            selectedOrder.current_stage === stage ? 
-                              "Current stage - in progress" : 
-                              "Not started yet"
-                          )}
-                        </Typography>
-                      </Box>
                       
-                      {(selectedOrder.current_stage === stage && !isStageCompleted(selectedOrder, stage)) && (
-                        <Box sx={{ mb: 2 }}>
-                          <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => handleOpenStageDialog(stage)}
-                            startIcon={<CheckIcon />}
-                          >
-                            Complete Stage
-                          </Button>
-                        </Box>
+                      {getStatusCompletionInfo(status.id)?.notes && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          Notes: {getStatusCompletionInfo(status.id).notes}
+                        </Typography>
                       )}
-                    </StepContent>
-                  </Step>
-                ))}
-              </Stepper>
-              
-              {/* Additional Details */}
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" gutterBottom>
-                  Additional Details
-                </Typography>
-                
-                <Divider sx={{ mb: 2 }} />
-                
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                          Location
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedOrder.location || 'N/A'}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6}>
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                          Contract Details
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedOrder.contract_number ? (
-                            <>Contract #: {selectedOrder.contract_number}</>
-                          ) : (
-                            'No contract information'
-                          )}
-                        </Typography>
-                        {selectedOrder.contract_signed_date && (
-                          <Typography variant="body2">
-                            Signed on: {formatDate(selectedOrder.contract_signed_date)}
-                          </Typography>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  
-                  {selectedOrder.notes && (
-                    <Grid item xs={12}>
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                            Notes
-                          </Typography>
-                          <Typography variant="body1">
-                            {selectedOrder.notes}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
+                    </Box>
+                  ) : status.id === order.current_stage ? (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Current status
+                      </Typography>
+                      
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => handleCompleteStatus(status)}
+                      >
+                        Complete & Continue
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Not started yet
+                    </Typography>
                   )}
-                </Grid>
-              </Box>
-            </Paper>
-          ) : (
-            <Paper sx={{ p: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <AssignmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Select an order to view details
-              </Typography>
-              <Typography variant="body2" color="text.secondary" align="center">
-                Choose an order from the list on the left to view tracking information, or create a new order.
-              </Typography>
-                              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => navigate('/orders/add')}
-                sx={{ mt: 3 }}
-              >
-                Create New Order
-              </Button>
-            </Paper>
-          )}
-        </Grid>
-      </Grid>
+                </StepContent>
+              </Step>
+            ))}
+          </Stepper>
+        ) : (
+          <Alert severity="info">
+            No workflow stages found for this order. Please check the order configuration.
+          </Alert>
+        )}
+      </Paper>
       
-      {/* Stage Update Dialog */}
-      <Dialog
-        open={stageUpdateDialog}
-        onClose={() => setStageUpdateDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Complete Stage: {newStageData.stage}</DialogTitle>
+      {/* Status Update Dialog */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
+        <DialogTitle>Complete Status: {selectedStatus?.name}</DialogTitle>
         <DialogContent>
-          <Box sx={{ p: 1 }}>
-            <Typography variant="body1" gutterBottom>
-              Mark this stage as completed and advance to the next step in the workflow.
-            </Typography>
-            
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Notes"
-              value={newStageData.notes}
-              onChange={(e) => setNewStageData({...newStageData, notes: e.target.value})}
-              placeholder="Add any relevant notes about this stage"
-              sx={{ mt: 2 }}
-            />
-          </Box>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Notes (optional)"
+            fullWidth
+            multiline
+            rows={4}
+            value={statusNote}
+            onChange={(e) => setStatusNote(e.target.value)}
+            variant="outlined"
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setStageUpdateDialog(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdateStage}
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleSubmitStatusUpdate} 
             disabled={updateLoading}
-          >
-            {updateLoading ? <CircularProgress size={24} /> : 'Complete & Advance'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* Task Dialog */}
-      <Dialog
-        open={taskDialog}
-        onClose={() => setTaskDialog(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Add Task for Order: {selectedOrder?.order_name}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                label="Task Title"
-                fullWidth
-                required
-                value={taskFormData.title}
-                onChange={(e) => setTaskFormData({...taskFormData, title: e.target.value})}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={taskFormData.status}
-                  label="Status"
-                  onChange={(e) => setTaskFormData({...taskFormData, status: e.target.value})}
-                >
-                  <MenuItem value="Open">Open</MenuItem>
-                  <MenuItem value="In Progress">In Progress</MenuItem>
-                  <MenuItem value="Blocked">Blocked</MenuItem>
-                  <MenuItem value="Completed">Completed</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
-                <Select
-                  value={taskFormData.priority}
-                  label="Priority"
-                  onChange={(e) => setTaskFormData({...taskFormData, priority: e.target.value})}
-                >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
-                  <MenuItem value="Urgent">Urgent</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Assigned To"
-                fullWidth
-                value={taskFormData.assigned_to}
-                onChange={(e) => setTaskFormData({...taskFormData, assigned_to: e.target.value})}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Due Date"
-                type="date"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                value={taskFormData.due_date}
-                onChange={(e) => setTaskFormData({...taskFormData, due_date: e.target.value})}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Description"
-                fullWidth
-                multiline
-                rows={4}
-                value={taskFormData.description}
-                onChange={(e) => setTaskFormData({...taskFormData, description: e.target.value})}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTaskDialog(false)}>Cancel</Button>
-          <Button
-            onClick={handleCreateTask}
-            color="primary"
             variant="contained"
-            disabled={updateLoading || !taskFormData.title}
           >
-            {updateLoading ? <CircularProgress size={24} /> : 'Create Task'}
+            {updateLoading ? <CircularProgress size={24} /> : 'Complete & Continue'}
           </Button>
         </DialogActions>
       </Dialog>
