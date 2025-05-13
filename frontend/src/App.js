@@ -26,7 +26,7 @@ import OrderList from "./pages/OrderList";
 import OrderDetail from "./pages/OrderDetail";
 import OrderForm from "./pages/OrderForm";
 import QuickBooksInvoiceGenerator from "./pages/QuickBooksInvoiceGenerator";
-import OrderTrackingPage from "./pages/OrderTrackingPage"; // Import the new OrderTrackingPage
+import OrderTrackingPage from "./pages/OrderTrackingPage"; // Import the OrderTrackingPage
 
 // Create a custom theme
 const theme = createTheme({
@@ -161,6 +161,21 @@ const TasksPlaceholder = () => {
   );
 };
 
+// Create a dedicated OrderTracking landing page component
+const OrderTrackingLanding = () => {
+  return (
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h4" gutterBottom>Order Tracking</Typography>
+      <Typography paragraph>
+        Please select an order from the list below to track its progress.
+      </Typography>
+      
+      {/* Embed the OrderList component with a filter for active orders */}
+      <OrderList initialFilter="Active" viewMode="tracking" />
+    </Box>
+  );
+};
+
 // Main application content
 const AppContent = () => {
   const { isLoading, checkAuthStatus } = useAuth();
@@ -202,14 +217,15 @@ const AppContent = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/tasks" element={<TasksComponent />} />
             <Route path="/quickbooks" element={<QuickBooksIntegration />} />
-            <Route path="/orders" element={<OrderList />} />
+            <Route path="/orders" element={<OrderList initialFilter="" viewMode="standard" />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/orders/add" element={<OrderForm />} />
             <Route path="/orders/:id/edit" element={<OrderForm />} />
-            {/* Add the new OrderTrackingPage route */}
-            {/* <Route path="/order-tracking" element={<OrderTrackingPage />} /> */}
+            
+            {/* Fix Order Tracking routes */}
+            <Route path="/order-tracking" element={<OrderTrackingLanding />} />
             <Route path="/order-tracking/:id" element={<OrderTrackingPage />} />
-            <Route path="/order-tracking" element={<OrderList />} />
+            
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
             <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />

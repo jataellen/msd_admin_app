@@ -1,12 +1,12 @@
 # backend/routes/order_routes.py
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import logging
 from database import supabase
 from auth import get_current_user
 from pydantic import BaseModel, Field
-from resources.workflow_constants import *
+from resources.workflow_constants import get_workflow_stages, get_all_statuses
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -73,7 +73,8 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
-    pass
+    workflow_type: Optional[str] = "MATERIALS_ONLY"
+    selected_stages: List[str] = []
 
 
 class OrderUpdate(BaseModel):
@@ -106,19 +107,45 @@ class OrderStageUpdate(BaseModel):
 async def create_order(
     order: OrderCreate, current_user: dict = Depends(get_current_user)
 ):
-    """Create a new order"""
+    """Create a new order with workflow stages"""
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
         logger.info(f"Creating new order: {order.order_name}")
 
+        # Validate workflow type
+        workflow_type = order.workflow_type or "MATERIALS_ONLY"
+        if workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
+            raise HTTPException(status_code=400, detail="Invalid workflow type")
+
         # Determine order type and set default if not provided
         order_type = order.type or "MATERIALS_ONLY"
 
+        # Validate selected stages if provided
+        if hasattr(order, "selected_stages") and order.selected_stages:
+            valid_stage_ids = [
+                stage["id"] for stage in get_workflow_stages(workflow_type)
+            ]
+
+            for stage_id in order.selected_stages:
+                if stage_id not in valid_stage_ids:
+                    raise HTTPException(
+                        status_code=400, detail=f"Invalid stage ID: {stage_id}"
+                    )
+
         # Initialize current_stage to first stage of workflow if not provided
         if not order.current_stage:
-            order.current_stage = WORKFLOW_STAGES[order_type][0]
+            # If we have selected stages, use the first status of the first selected stage
+            if hasattr(order, "selected_stages") and order.selected_stages:
+                stages = get_workflow_stages(workflow_type)
+                for stage in stages:
+                    if stage["id"] in order.selected_stages and stage["statuses"]:
+                        order.current_stage = stage["statuses"][0]["id"]
+                        break
+            # Otherwise default to first stage in workflow
+            if not order.current_stage:
+                order.current_stage = WORKFLOW_STAGES[order_type][0]
 
         # Validate stage if provided
         if (
@@ -134,7 +161,7 @@ async def create_order(
         now = datetime.now().isoformat()
 
         # Prepare order data for db
-        order_data = order.dict()
+        order_data = order.dict(exclude={"workflow_type", "selected_stages"})
         order_data["created_at"] = now
         order_data["updated_at"] = now
         order_data["last_status_update"] = now
@@ -274,13 +301,6 @@ async def get_order(order_id: int, current_user: dict = Depends(get_current_user
             order["invoices"] = invoices_response.data
         else:
             order["invoices"] = []
-        # invoices_response = (
-        #     supabase.table("invoices").select("*").eq("order_id", order_id).execute()
-        # )
-        # if invoices_response.data:
-        #     order["invoices"] = invoices_response.data
-        # else:
-        #     order["invoices"] = []
 
         return {
             "order": order,
@@ -589,7 +609,7 @@ async def delete_order(order_id: int, current_user: dict = Depends(get_current_u
 
 
 @router.get("/workflow-stages/{order_type}")
-async def get_workflow_stages(order_type: str):
+async def get_workflow_stages_by_type(order_type: str):
     """Get workflow stages for an order type"""
     if order_type not in WORKFLOW_STAGES:
         raise HTTPException(
@@ -598,9 +618,6 @@ async def get_workflow_stages(order_type: str):
         )
 
     return {"stages": WORKFLOW_STAGES[order_type]}
-
-
-# Add this code at the end of your order_routes.py file
 
 
 # Get order history events
@@ -708,7 +725,7 @@ async def get_order_history(
 @router.post("/{order_id}/notes")
 async def add_order_note(
     order_id: int,
-    note,
+    note: dict,
     current_user: dict = Depends(get_current_user),
 ):
     """Add a note to an order's history"""
@@ -749,7 +766,7 @@ async def add_order_note(
 
 
 @router.get("/workflow-stages")
-async def get_workflow_stages(
+async def get_workflow_stages_endpoint(
     workflow_type: str = Query(..., description="Type of workflow")
 ):
     """Get workflow stages for a specific workflow type"""
@@ -763,66 +780,11 @@ async def get_workflow_stages(
     return {"stages": stages}
 
 
-@router.post("/")
-async def create_order(
-    order: OrderCreate, current_user: dict = Depends(get_current_user)
-):
-    """Create a new order with workflow stages"""
-    try:
-        if not current_user:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-
-        # Validate workflow type
-        if order.workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
-            raise HTTPException(status_code=400, detail="Invalid workflow type")
-
-        # Validate selected stages
-
-        valid_stage_ids = [
-            stage["id"] for stage in get_workflow_stages(order.workflow_type)
-        ]
-
-        for stage_id in order.selected_stages:
-            if stage_id not in valid_stage_ids:
-                raise HTTPException(
-                    status_code=400, detail=f"Invalid stage ID: {stage_id}"
-                )
-
-        # Set initial status (first status of first selected stage)
-        stages = get_workflow_stages(order.workflow_type)
-        initial_status = None
-
-        for stage in stages:
-            if stage["id"] in order.selected_stages and stage["statuses"]:
-                initial_status = stage["statuses"][0]["id"]
-                break
-
-        # Prepare order data with workflow information
-        now = datetime.now().isoformat()
-        order_data = order.dict()
-        order_data["created_at"] = now
-        order_data["updated_at"] = now
-        order_data["current_stage"] = initial_status
-        order_data["completed_stages"] = []
-
-        # Insert order into database
-        response = supabase.table("orders").insert(order_data).execute()
-
-        if not response.data:
-            raise HTTPException(status_code=500, detail="Failed to create order")
-
-        return response.data[0]
-
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error creating order: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error creating order: {str(e)}")
-
-
 @router.post("/{order_id}/update-status")
 async def update_order_status(
-    order_id: int, new_status, notes, current_user: dict = Depends(get_current_user)
+    order_id: int,
+    new_status: dict,
+    current_user: dict = Depends(get_current_user),
 ):
     """Update order status in workflow"""
     try:
@@ -839,22 +801,32 @@ async def update_order_status(
 
         order = order_response.data[0]
 
+        # Extract new_status value and notes from request
+        status_value = new_status.get("new_status")
+        notes = new_status.get("notes", "")
+
         # Validate the new status
+        workflow_type = order.get("workflow_type", "MATERIALS_ONLY")
+        stages = get_workflow_stages(workflow_type)
+        all_statuses = []
 
-        stages = get_workflow_stages(order["workflow_type"])
-        all_statuses = [status["id"] for status in get_all_statuses(stages)]
+        for stage in stages:
+            for status in stage["statuses"]:
+                all_statuses.append(status["id"])
 
-        if new_status not in all_statuses:
+        if status_value not in all_statuses:
             raise HTTPException(status_code=400, detail="Invalid status")
 
-        # Get current status and previous status
-        current_status = order["current_stage"]
+        # Get current status
+        current_status = order.get("current_stage")
 
         # Get timestamp for the status change
         now = datetime.now().isoformat()
 
         # Update the completed_stages array with the current status being completed
         completed_stages = order.get("completed_stages", [])
+        if not completed_stages:
+            completed_stages = []
 
         # Add current status to completed stages
         if current_status:
@@ -869,7 +841,7 @@ async def update_order_status(
 
         # Update the order
         update_data = {
-            "current_stage": new_status,
+            "current_stage": status_value,
             "completed_stages": completed_stages,
             "updated_at": now,
         }
@@ -893,24 +865,3 @@ async def update_order_status(
         raise HTTPException(
             status_code=500, detail=f"Error updating order status: {str(e)}"
         )
-
-
-@router.get("/workflow-stages")
-async def get_workflow_stages_by_type(
-    workflow_type: str = Query(..., description="Type of workflow")
-):
-    """Get workflow stages for a specific workflow type"""
-    if workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid workflow type. Must be MATERIALS_ONLY or MATERIALS_AND_INSTALLATION",
-        )
-
-    stages = []
-
-    if workflow_type == "MATERIALS_ONLY":
-        stages = MATERIALS_ONLY_STAGES
-    else:
-        stages = MATERIALS_AND_INSTALLATION_STAGES
-
-    return {"stages": stages}

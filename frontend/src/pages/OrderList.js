@@ -37,20 +37,20 @@ import {
   Clear as ClearIcon,
   Refresh as RefreshIcon,
   Add as AddIcon,
-  VisibilityOutlined as ViewIcon
+  VisibilityOutlined as ViewIcon,
+  Timeline as TimelineIcon
 } from '@mui/icons-material';
 
-// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-// const API_URL = 'https://msdadminapp-production.up.railway.app';
+// API URL
 const API_URL = 'http://localhost:8000';
 
-const OrderList = () => {
+const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   
   // Parse URL query parameters
   const searchParams = new URLSearchParams(location.search);
-  const initialStatus = searchParams.get('status') || '';
+  const urlFilter = searchParams.get('status') || initialFilter;
   
   // State variables
   const [orders, setOrders] = useState([]);
@@ -60,7 +60,7 @@ const OrderList = () => {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
-  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [statusFilter, setStatusFilter] = useState(urlFilter);
   const [priorityFilter, setPriorityFilter] = useState('');
   const [orderStatuses, setOrderStatuses] = useState([]);
   const [orderPriorities, setOrderPriorities] = useState([]);
@@ -209,6 +209,15 @@ const OrderList = () => {
     });
   };
   
+  // Handle navigation based on view mode
+  const handleViewOrder = (orderId) => {
+    if (viewMode === 'tracking') {
+      navigate(`/order-tracking/${orderId}`);
+    } else {
+      navigate(`/orders/${orderId}`);
+    }
+  };
+  
   // Get status chip color
   const getStatusColor = (status) => {
     if (!status) return 'default';
@@ -261,6 +270,42 @@ const OrderList = () => {
     return new Date(dateString).toLocaleDateString();
   };
   
+  // Render the page title based on view mode
+  const renderPageTitle = () => {
+    if (viewMode === 'tracking') {
+      return "Order Tracking";
+    }
+    return "Orders";
+  };
+  
+  // Render the action button based on view mode
+  const renderActionButton = (order) => {
+    if (viewMode === 'tracking') {
+      return (
+        <Button
+          variant="contained"
+          color="primary"
+          size="small"
+          startIcon={<TimelineIcon />}
+          onClick={() => handleViewOrder(order.order_id)}
+        >
+          Track
+        </Button>
+      );
+    }
+    
+    return (
+      <IconButton
+        color="primary"
+        size="small"
+        onClick={() => handleViewOrder(order.order_id)}
+        title="View Order Details"
+      >
+        <ViewIcon />
+      </IconButton>
+    );
+  };
+  
   if (loading && orders.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -273,7 +318,7 @@ const OrderList = () => {
     <Box sx={{ maxWidth: '100%', overflowX: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Orders
+          {renderPageTitle()}
         </Typography>
         
         <Box>
@@ -288,14 +333,16 @@ const OrderList = () => {
             Refresh
           </Button>
           
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/orders/add')}
-          >
-            New Order
-          </Button>
+          {viewMode === 'standard' && (
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/orders/add')}
+            >
+              New Order
+            </Button>
+          )}
         </Box>
       </Box>
       
@@ -471,14 +518,7 @@ const OrderList = () => {
                         `${order.progress_percentage}%` : 'N/A'}
                     </TableCell>
                     <TableCell>
-                      <IconButton
-                        color="primary"
-                        size="small"
-                        onClick={() => navigate(`/orders/${order.order_id}`)}
-                        title="View Order Details"
-                      >
-                        <ViewIcon />
-                      </IconButton>
+                      {renderActionButton(order)}
                     </TableCell>
                   </TableRow>
                 ))}

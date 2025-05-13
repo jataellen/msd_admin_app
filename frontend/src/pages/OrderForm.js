@@ -1,4 +1,4 @@
-// OrderForm.js - React component for creating/editing orders
+// OrderForm.js - React component for creating/editing orders (Fixed)
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -20,7 +20,7 @@ import {
   Alert
 } from '@mui/material';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL =  'http://localhost:8000';
 
 const OrderForm = ({ onSubmitSuccess }) => {
   // Form state
@@ -42,8 +42,10 @@ const OrderForm = ({ onSubmitSuccess }) => {
     const fetchWorkflowStages = async () => {
       setStagesLoading(true);
       try {
+        // Fixed: Use the workflow endpoint instead of orders endpoint
+        // and send workflow_type as path parameter rather than query parameter
         const response = await axios.get(
-          `${API_URL}/orders/workflow-stages?workflow_type=${formData.workflow_type}`,
+          `${API_URL}/workflow/stages/${formData.workflow_type}`,
           { withCredentials: true }
         );
         
@@ -53,7 +55,7 @@ const OrderForm = ({ onSubmitSuccess }) => {
           // Set all stages selected by default
           setFormData(prev => ({
             ...prev,
-            selected_stages: response.data.stages.map(stage => stage.id)
+            selected_stages: response.data.stages
           }));
         }
       } catch (err) {
@@ -89,14 +91,14 @@ const OrderForm = ({ onSubmitSuccess }) => {
   };
   
   // Handle stage checkbox change
-  const handleStageChange = (stageId, checked) => {
+  const handleStageChange = (stage, checked) => {
     setFormData(prev => {
       let newSelectedStages = [...prev.selected_stages];
       
       if (checked) {
-        newSelectedStages.push(stageId);
+        newSelectedStages.push(stage);
       } else {
-        newSelectedStages = newSelectedStages.filter(id => id !== stageId);
+        newSelectedStages = newSelectedStages.filter(s => s !== stage);
       }
       
       return {
@@ -202,23 +204,17 @@ const OrderForm = ({ onSubmitSuccess }) => {
         ) : (
           <FormGroup>
             {workflowStages.map(stage => (
-              <Box key={stage.id} sx={{ mb: 2 }}>
+              <Box key={stage} sx={{ mb: 2 }}>
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={formData.selected_stages.includes(stage.id)}
-                      onChange={(e) => handleStageChange(stage.id, e.target.checked)}
-                      name={stage.id}
+                      checked={formData.selected_stages.includes(stage)}
+                      onChange={(e) => handleStageChange(stage, e.target.checked)}
+                      name={stage}
                     />
                   }
-                  label={<Typography variant="subtitle1">{stage.name}</Typography>}
+                  label={<Typography variant="subtitle1">{stage}</Typography>}
                 />
-                
-                <Box sx={{ ml: 3 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Includes: {stage.statuses.map(status => status.name).join(', ')}
-                  </Typography>
-                </Box>
               </Box>
             ))}
           </FormGroup>

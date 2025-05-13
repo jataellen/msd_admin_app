@@ -75,6 +75,8 @@ const OrderTrackingPage = () => {
         
         if (response.data && response.data.order) {
           setOrder(response.data.order);
+        } else {
+          setError('Order data not found');
         }
       } catch (err) {
         console.error('Error fetching order data:', err);
@@ -94,7 +96,7 @@ const OrderTrackingPage = () => {
   
   // Handle navigation back to orders list
   const handleBackToOrders = () => {
-    navigate('/orders');
+    navigate('/order-tracking');
   };
 
   if (loading) {
@@ -147,11 +149,11 @@ const OrderTrackingPage = () => {
           onClick={handleBackToOrders}
           sx={{ mb: 2 }}
         >
-          Back to Orders
+          Back to Order Tracking
         </Button>
         
         <Typography variant="h4" component="h1" gutterBottom>
-          Order Tracking: {order.order_name}
+          Order Tracking: {order.order_name || `Order #${order.order_id}`}
         </Typography>
         
         <Typography variant="subtitle1" color="text.secondary">
@@ -184,11 +186,11 @@ const OrderTrackingPage = () => {
         </Tabs>
         
         <TabPanel value={tabValue} index={0}>
-          <OrderTracking orderId={id} orderData={order} />
+          <OrderTracking orderId={parseInt(id)} orderData={order} />
         </TabPanel>
         
         <TabPanel value={tabValue} index={1}>
-          <OrderHistoryTimeline orderId={id} />
+          <OrderHistoryTimeline orderId={parseInt(id)} />
         </TabPanel>
       </Paper>
     </Box>
