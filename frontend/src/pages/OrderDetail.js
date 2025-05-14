@@ -1,4 +1,4 @@
-// src/pages/OrderDetail.js
+// src/pages/OrderDetail.js - Updated to use current_stage instead of status
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -100,9 +100,9 @@ const OrderDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
-  const [statusDialog, setStatusDialog] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  const [orderStatuses, setOrderStatuses] = useState([]);
+  const [stageDialog, setStageDialog] = useState(false);
+  const [newStage, setNewStage] = useState('');
+  const [orderStages, setOrderStages] = useState([]);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [taskDialog, setTaskDialog] = useState(false);
   const [taskFormData, setTaskFormData] = useState({
@@ -135,18 +135,29 @@ const OrderDetail = () => {
         setPurchaseOrders(response.data.purchase_orders || []);
         setInvoices(response.data.invoices || []);
         
-        // Set initial status for dialog
+        // Set initial stage for dialog
         if (response.data.order) {
-          setNewStatus(response.data.order.status);
+          setNewStage(response.data.order.current_stage);
         }
         
-        // Fetch order statuses
-        const statusesResponse = await axios.get(`${API_URL}/orders/order-statuses`, {
-          withCredentials: true
-        });
-        
-        if (statusesResponse.data && statusesResponse.data.statuses) {
-          setOrderStatuses(statusesResponse.data.statuses);
+        // Fetch order stages based on order type
+        if (response.data.order && response.data.order.type) {
+          const stagesResponse = await axios.get(`${API_URL}/orders/workflow-stages/${response.data.order.type}`, {
+            withCredentials: true
+          });
+          
+          if (stagesResponse.data && stagesResponse.data.stages) {
+            setOrderStages(stagesResponse.data.stages);
+          }
+        } else {
+          // Default to MATERIALS_ONLY if no type is provided
+          const stagesResponse = await axios.get(`${API_URL}/orders/workflow-stages/MATERIALS_ONLY`, {
+            withCredentials: true
+          });
+          
+          if (stagesResponse.data && stagesResponse.data.stages) {
+            setOrderStages(stagesResponse.data.stages);
+          }
         }
       } catch (err) {
         console.error('Error fetching order details:', err);
@@ -164,30 +175,30 @@ const OrderDetail = () => {
     setTabValue(newValue);
   };
   
-  // Handle status update
-  const handleStatusUpdate = async () => {
-    if (!order || newStatus === order.status) {
-      setStatusDialog(false);
+  // Handle stage update
+  const handleStageUpdate = async () => {
+    if (!order || newStage === order.current_stage) {
+      setStageDialog(false);
       return;
     }
     
     setUpdateLoading(true);
     
     try {
-      // const response = await axios.put(
-      //   `${API_URL}/orders/${id}`,
-      //   { status: newStatus },
-      //   { withCredentials: true }
-      // );
+      const response = await axios.put(
+        `${API_URL}/orders/${id}`,
+        { current_stage: newStage },
+        { withCredentials: true }
+      );
       
       // Update order in state
-      setOrder({ ...order, status: newStatus });
+      setOrder(response.data);
       
       // Close dialog
-      setStatusDialog(false);
+      setStageDialog(false);
     } catch (err) {
-      console.error('Error updating order status:', err);
-      setError('Failed to update order status. Please try again.');
+      console.error('Error updating order stage:', err);
+      setError('Failed to update order stage. Please try again.');
     } finally {
       setUpdateLoading(false);
     }
@@ -246,25 +257,25 @@ const OrderDetail = () => {
     return new Date(dateString).toLocaleDateString();
   };
   
-  // Get status chip color
-  const getStatusColor = (status) => {
-    if (!status) return 'default';
+  // Get stage chip color
+  const getStageColor = (stage) => {
+    if (!stage) return 'default';
     
-    switch (status) {
-      case 'Lead':
-        return 'info';
-      case 'Quoted':
-        return 'secondary';
-      case 'Active':
-        return 'primary';
-      case 'On Hold':
-        return 'warning';
-      case 'Completed':
-        return 'success';
-      case 'Cancelled':
-        return 'error';
-      default:
-        return 'default';
+    // Define color mapping based on stage keywords
+    if (stage.includes('Quote') || stage.includes('Inquiry')) {
+      return 'info';
+    } else if (stage.includes('Materials') || stage.includes('Purchase')) {
+      return 'secondary';
+    } else if (stage.includes('Installation') || stage.includes('In Progress')) {
+      return 'primary';
+    } else if (stage.includes('Hold')) {
+      return 'warning';
+    } else if (stage.includes('Complete') || stage.includes('Paid') || stage.includes('Delivered')) {
+      return 'success';
+    } else if (stage.includes('Cancel')) {
+      return 'error';
+    } else {
+      return 'default';
     }
   };
   
@@ -274,7 +285,6 @@ const OrderDetail = () => {
     
     switch (priority) {
       case 'Critical':
-      case 'Urgent':
         return 'error';
       case 'High':
         return 'warning';
@@ -345,8 +355,8 @@ const OrderDetail = () => {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
             <Chip 
-              label={order.status} 
-              color={getStatusColor(order.status)}
+              label={order.current_stage} 
+              color={getStageColor(order.current_stage)}
               sx={{ mr: 1 }}
             />
             
@@ -362,9 +372,9 @@ const OrderDetail = () => {
             <Button 
               size="small" 
               startIcon={<EditIcon />}
-              onClick={() => setStatusDialog(true)}
+              onClick={() => setStageDialog(true)}
             >
-              Change Status
+              Change Stage
             </Button>
           </Box>
           <Typography variant="subtitle1" color="textSecondary">
@@ -647,7 +657,7 @@ const OrderDetail = () => {
                     </ListItem>
                     <ListItem disableGutters>
                       <ListItemText 
-                        primary="Last Status Update" 
+                        primary="Last Stage Update" 
                         secondary={formatDate(order.last_status_update)} 
                       />
                     </ListItem>
@@ -731,7 +741,7 @@ const OrderDetail = () => {
                       <TableCell>
                         <Chip 
                           label={task.status} 
-                          color={getStatusColor(task.status)}
+                          color={getStageColor(task.status)}
                           size="small"
                         />
                       </TableCell>
@@ -960,7 +970,7 @@ const OrderDetail = () => {
               <Typography color="textSecondary">
                 No invoices found for this order.
               </Typography>
-              {order.status === 'Completed' && (
+              {order.actual_completion_date && (
                 <Button 
                   variant="contained" 
                   startIcon={<AddIcon />} 
@@ -973,7 +983,7 @@ const OrderDetail = () => {
               <Button 
                 variant="outlined" 
                 startIcon={<SyncIcon />} 
-                sx={{ mt: 2, ml: order.status === 'Completed' ? 1 : 0 }}
+                sx={{ mt: 2, ml: order.actual_completion_date ? 1 : 0 }}
                 onClick={() => navigate(`/quickbooks/push/invoice/${id}`)}
               >
                 Generate QuickBooks Invoice
@@ -1042,36 +1052,36 @@ const OrderDetail = () => {
         </TabPanel>
       </Paper>
       
-      {/* Change Status Dialog */}
-      <Dialog open={statusDialog} onClose={() => setStatusDialog(false)}>
-        <DialogTitle>Update Order Status</DialogTitle>
+      {/* Change Stage Dialog */}
+      <Dialog open={stageDialog} onClose={() => setStageDialog(false)}>
+        <DialogTitle>Update Order Stage</DialogTitle>
         <DialogContent>
           <FormControl fullWidth sx={{ mt: 1 }}>
-            <InputLabel id="status-select-label">Status</InputLabel>
+            <InputLabel id="stage-select-label">Current Stage</InputLabel>
             <Select
-              labelId="status-select-label"
-              id="status-select"
-              value={newStatus}
-              label="Status"
-              onChange={(e) => setNewStatus(e.target.value)}
+              labelId="stage-select-label"
+              id="stage-select"
+              value={newStage}
+              label="Current Stage"
+              onChange={(e) => setNewStage(e.target.value)}
             >
-              {orderStatuses.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
+              {orderStages.map((stage) => (
+                <MenuItem key={stage} value={stage}>
+                  {stage}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setStatusDialog(false)}>Cancel</Button>
+          <Button onClick={() => setStageDialog(false)}>Cancel</Button>
           <Button 
-            onClick={handleStatusUpdate}
+            onClick={handleStageUpdate}
             color="primary" 
             variant="contained"
-            disabled={updateLoading || newStatus === order.status}
+            disabled={updateLoading || newStage === order.current_stage}
           >
-            {updateLoading ? <CircularProgress size={24} /> : 'Update Status'}
+            {updateLoading ? <CircularProgress size={24} /> : 'Update Stage'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,4 +1,4 @@
-// src/components/Navbar.js - Updated with Order Tracking link
+// src/components/Navbar.js - Updated with combined order tracking
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -39,8 +39,7 @@ import {
   Receipt as ReceiptIcon,
   ShoppingCart as ShoppingCartIcon,
   People as PeopleIcon,
-  SyncAlt as SyncAltIcon,
-  Timeline as TimelineIcon // Added for Order Tracking
+  SyncAlt as SyncAltIcon
 } from '@mui/icons-material';
 
 // Sidebar/Drawer component
@@ -107,14 +106,6 @@ const Sidebar = ({ open, onClose }) => {
                   <BusinessCenterIcon />
                 </ListItemIcon>
                 <ListItemText primary="Orders" />
-              </ListItem>
-              
-              {/* Add Order Tracking Link */}
-              <ListItem button onClick={() => handleNavigation('/order-tracking')}>
-                <ListItemIcon>
-                  <TimelineIcon />
-                </ListItemIcon>
-                <ListItemText primary="Order Tracking" />
               </ListItem>
               
               <ListItem button onClick={() => handleNavigation('/quotes')}>
@@ -270,10 +261,6 @@ const Navbar = () => {
                 </Button>
                 <Button color="inherit" component={Link} to="/orders" sx={{ mr: 1 }}>
                   Orders
-                </Button>
-                {/* Add Order Tracking Button */}
-                <Button color="inherit" component={Link} to="/order-tracking" sx={{ mr: 1 }}>
-                  Order Tracking
                 </Button>
                 <Button color="inherit" component={Link} to="/quickbooks" sx={{ mr: 1 }}>
                   QuickBooks

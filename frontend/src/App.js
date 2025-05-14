@@ -1,4 +1,4 @@
-// src/App.js
+// src/App.js - Updated with improved navigation flow
 import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -26,7 +26,6 @@ import OrderList from "./pages/OrderList";
 import OrderDetail from "./pages/OrderDetail";
 import OrderForm from "./pages/OrderForm";
 import QuickBooksInvoiceGenerator from "./pages/QuickBooksInvoiceGenerator";
-import OrderTrackingPage from "./pages/OrderTrackingPage"; // Import the OrderTrackingPage
 
 // Create a custom theme
 const theme = createTheme({
@@ -40,13 +39,12 @@ const theme = createTheme({
     background: {
       default: '#f5f5f5'
     },
-    // Add success color with required main property
     success: {
-      main: '#4caf50',  // Required main property
+      main: '#4caf50',
       light: '#80e27e',
       dark: '#087f23',
       contrastText: '#ffffff',
-      50: '#e8f5e9'  // Custom shade for subtle backgrounds
+      50: '#e8f5e9'
     }
   },
   typography: {
@@ -148,34 +146,6 @@ const PublicOnlyRoute = ({ children }) => {
   return !isAuthenticated ? children : null;
 };
 
-// Create a temporary Tasks component if the real one doesn't exist yet
-// This helps prevent the "undefined component" error
-const TasksPlaceholder = () => {
-  return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h4" gutterBottom>Tasks</Typography>
-      <Typography>
-        Tasks functionality is coming soon. This is a placeholder component.
-      </Typography>
-    </Box>
-  );
-};
-
-// Create a dedicated OrderTracking landing page component
-const OrderTrackingLanding = () => {
-  return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h4" gutterBottom>Order Tracking</Typography>
-      <Typography paragraph>
-        Please select an order from the list below to track its progress.
-      </Typography>
-      
-      {/* Embed the OrderList component with a filter for active orders */}
-      <OrderList initialFilter="Active" viewMode="tracking" />
-    </Box>
-  );
-};
-
 // Main application content
 const AppContent = () => {
   const { isLoading, checkAuthStatus } = useAuth();
@@ -192,9 +162,6 @@ const AppContent = () => {
       </Box>
     );
   }
-
-  // Use the actual Tasks component if it exists, otherwise use the placeholder
-  const TasksComponent = typeof Tasks !== 'undefined' ? Tasks : TasksPlaceholder;
 
   return (
     <Router>
@@ -215,16 +182,15 @@ const AppContent = () => {
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/tasks" element={<TasksComponent />} />
+            <Route path="/tasks" element={<Tasks />} />
             <Route path="/quickbooks" element={<QuickBooksIntegration />} />
-            <Route path="/orders" element={<OrderList initialFilter="" viewMode="standard" />} />
+            
+            {/* Order Routes - Simplified Structure */}
+            <Route path="/orders" element={<OrderList />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/orders/add" element={<OrderForm />} />
             <Route path="/orders/:id/edit" element={<OrderForm />} />
-            
-            {/* Fix Order Tracking routes */}
-            <Route path="/order-tracking" element={<OrderTrackingLanding />} />
-            <Route path="/order-tracking/:id" element={<OrderTrackingPage />} />
+            <Route path="/quickbooks/push/invoice/:id" element={<QuickBooksInvoiceGenerator />} />
             
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
@@ -236,7 +202,6 @@ const AppContent = () => {
             <Route path="/employees/:id/edit" element={<Box sx={{ p: 2 }}>Edit Employee Page</Box>} />
             <Route path="/profile" element={<Box sx={{ p: 2 }}>User Profile Page</Box>} />
             <Route path="/settings" element={<Box sx={{ p: 2 }}>Settings Page</Box>} />
-            <Route path="/quickbooks/push/invoice/:id" element={<QuickBooksInvoiceGenerator />} />
           </Route>
 
           {/* Fallback route */}

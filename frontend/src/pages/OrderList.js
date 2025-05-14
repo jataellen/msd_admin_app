@@ -50,7 +50,7 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   
   // Parse URL query parameters
   const searchParams = new URLSearchParams(location.search);
-  const urlFilter = searchParams.get('status') || initialFilter;
+  const urlFilter = searchParams.get('current_stage') || initialFilter;
   
   // State variables
   const [orders, setOrders] = useState([]);
@@ -60,11 +60,11 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
-  const [statusFilter, setStatusFilter] = useState(urlFilter);
+  const [stageFilter, setStageFilter] = useState(urlFilter);
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [orderStatuses, setOrderStatuses] = useState([]);
+  const [orderStages, setOrderStages] = useState([]);
   const [orderPriorities, setOrderPriorities] = useState([]);
-  const [statusCounts, setStatusCounts] = useState({});
+  const [stageCounts, setStageCounts] = useState({});
   
   // Fetch orders and dropdown options
   useEffect(() => {
@@ -84,13 +84,13 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
           setOrders([]);
         }
         
-        // Fetch order statuses
-        const statusesResponse = await axios.get(`${API_URL}/orders/order-statuses`, {
+        // Fetch order stages
+        const stagesResponse = await axios.get(`${API_URL}/orders/order-stages`, {
           withCredentials: true
         });
         
-        if (statusesResponse.data && statusesResponse.data.statuses) {
-          setOrderStatuses(statusesResponse.data.statuses);
+        if (stagesResponse.data && stagesResponse.data.stages) {
+          setOrderStages(stagesResponse.data.stages);
         }
         
         // Fetch order priorities
@@ -112,25 +112,25 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
     fetchData();
   }, []);
   
-  // Calculate status counts
+  // Calculate stage counts
   useEffect(() => {
     if (!orders.length) return;
     
     const counts = {};
-    orderStatuses.forEach(status => {
-      counts[status] = orders.filter(order => order.status === status).length;
+    orderStages.forEach(stage => {
+      counts[stage] = orders.filter(order => order.current_stage === stage).length;
     });
     
-    setStatusCounts(counts);
-  }, [orders, orderStatuses]);
+    setStageCounts(counts);
+  }, [orders, orderStages]);
   
   // Apply filters and search
   useEffect(() => {
     let filtered = [...orders];
     
-    // Apply status filter
-    if (statusFilter) {
-      filtered = filtered.filter(order => order.status === statusFilter);
+    // Apply stage filter
+    if (stageFilter) {
+      filtered = filtered.filter(order => order.current_stage === stageFilter);
     }
     
     // Apply priority filter
@@ -151,7 +151,7 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
     
     setFilteredOrders(filtered);
     setPage(1); // Reset to first page on filter change
-  }, [orders, statusFilter, priorityFilter, searchTerm]);
+  }, [orders, stageFilter, priorityFilter, searchTerm]);
   
   // Current page items
   const currentOrders = filteredOrders.slice(
@@ -190,17 +190,17 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
     }
   };
   
-  // Handle status filter change
-  const handleStatusFilterChange = (event) => {
-    const newStatus = event.target.value;
-    setStatusFilter(newStatus);
+  // Handle stage filter change
+  const handleStageFilterChange = (event) => {
+    const newStage = event.target.value;
+    setStageFilter(newStage);
     
     // Update URL to reflect filter
     const params = new URLSearchParams(location.search);
-    if (newStatus) {
-      params.set('status', newStatus);
+    if (newStage) {
+      params.set('current_stage', newStage);
     } else {
-      params.delete('status');
+      params.delete('current_stage');
     }
     
     navigate({
@@ -218,27 +218,28 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
     }
   };
   
-  // Get status chip color
-  const getStatusColor = (status) => {
-    if (!status) return 'default';
+  // Get stage chip color
+  const getStageColor = (stage) => {
+    if (!stage) return 'default';
     
-    switch (status) {
-      case 'Lead':
-        return 'info';
-      case 'Quoted':
-        return 'secondary';
-      case 'Active':
-        return 'primary';
-      case 'On Hold':
-        return 'warning';
-      case 'Completed':
-        return 'success';
-      case 'Cancelled':
-        return 'error';
-      default:
-        return 'default';
+    // Define color mapping based on stage keywords
+    if (stage.includes('LEAD_ACQUISITION') || stage.includes('Lead Acquisition')) {
+      return 'warning';  // Typically amber/yellow - attention-grabbing for new leads
+    } else if (stage.includes('QUOTATION') || stage.includes('Quotation')) {
+      return 'info';     // Typically blue - professional, communicative
+    } else if (stage.includes('PROCUREMENT') || stage.includes('Procurement')) {
+      return 'secondary'; // Typically purple/gray - transitional stage
+    } else if (stage.includes('FULFILLMENT') || stage.includes('Fulfillment')) {
+      return 'primary';   // Typically main brand color - important action stage
+    } else if (stage.includes('FINALIZATION') || stage.includes('Finalization')) {
+      return 'success';   // Typically green - completion, success
+    } else {
+      return 'default';   // Typically gray - neutral
     }
   };
+  
+  
+  
   
   // Get priority chip color
   const getPriorityColor = (priority) => {
@@ -280,31 +281,28 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   
   // Render the action button based on view mode
   const renderActionButton = (order) => {
-    if (viewMode === 'tracking') {
-      return (
-        <Button
-          variant="contained"
-          color="primary"
-          size="small"
-          startIcon={<TimelineIcon />}
-          onClick={() => handleViewOrder(order.order_id)}
-        >
-          Track
-        </Button>
-      );
-    }
-    
-    return (
-      <IconButton
-        color="primary"
-        size="small"
-        onClick={() => handleViewOrder(order.order_id)}
-        title="View Order Details"
-      >
-        <ViewIcon />
-      </IconButton>
-    );
-  };
+  
+  return (
+    <Button 
+      size="small" 
+      variant="contained"
+      color="primary"
+      onClick={() => handleViewOrder(order.order_id)}
+      sx={{ 
+        borderRadius: 6, 
+        px: 2,
+        py: 0.5,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        fontSize: '0.75rem',
+        fontWeight: 500,
+        minWidth: 0
+      }}
+      
+    >
+      View
+    </Button>
+  );
+};
   
   if (loading && orders.length === 0) {
     return (
@@ -360,28 +358,28 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
         </Alert>
       )}
       
-      {/* Status Cards */}
+      {/* Stage Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        {orderStatuses.map((status) => (
-          <Grid item xs={6} sm={4} md={2} key={status}>
+        {orderStages.map((stage) => (
+          <Grid item xs={6} sm={4} md={2} key={stage}>
             <Card 
-              variant={statusFilter === status ? "elevation" : "outlined"} 
-              elevation={statusFilter === status ? 4 : 1}
+              variant={stageFilter === stage ? "elevation" : "outlined"} 
+              elevation={stageFilter === stage ? 4 : 1}
               sx={{ 
                 cursor: 'pointer',
-                bgcolor: statusFilter === status ? `${getStatusColor(status)}.50` : 'inherit',
-                borderColor: statusFilter === status ? `${getStatusColor(status)}.main` : 'inherit'
+                bgcolor: stageFilter === stage ? `${getStageColor(stage)}.50` : 'inherit',
+                borderColor: stageFilter === stage ? `${getStageColor(stage)}.main` : 'inherit'
               }}
-              onClick={() => handleStatusFilterChange({ target: { value: statusFilter === status ? '' : status } })}
+              onClick={() => handleStageFilterChange({ target: { value: stageFilter === stage ? '' : stage } })}
             >
               <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="subtitle2" color="textSecondary">
-                    {status}
+                    {stage}
                   </Typography>
                   <Chip 
-                    label={statusCounts[status] || 0} 
-                    color={getStatusColor(status)} 
+                    label={stageCounts[stage] || 0} 
+                    color={getStageColor(stage)} 
                     size="small"
                     sx={{ minWidth: 30, ml: 1}}
                   />
@@ -425,19 +423,19 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
           
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
-              <InputLabel id="status-filter-label">Status</InputLabel>
+              <InputLabel id="stage-filter-label" shrink={true} >Current Stage</InputLabel>
               <Select
-                labelId="status-filter-label"
-                id="status-filter"
-                value={statusFilter}
-                label="Status"
-                onChange={handleStatusFilterChange}
+                labelId="stage-filter-label"
+                id="stage-filter"
+                value={stageFilter}
+                label="Current Stage"
+                onChange={handleStageFilterChange}
                 displayEmpty
               >
-                <MenuItem value="">All Statuses</MenuItem>
-                {orderStatuses.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {status} ({statusCounts[status] || 0})
+                <MenuItem value="">All Stages</MenuItem>
+                {orderStages.map((stage) => (
+                  <MenuItem key={stage} value={stage}>
+                    {stage} ({stageCounts[stage] || 0})
                   </MenuItem>
                 ))}
               </Select>
@@ -446,7 +444,7 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
           
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
-              <InputLabel id="priority-filter-label">Priority</InputLabel>
+              <InputLabel id="priority-filter-label" shrink={true} >Priority</InputLabel>
               <Select
                 labelId="priority-filter-label"
                 id="priority-filter"
@@ -479,11 +477,12 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
                 <TableRow>
                   <TableCell>ID</TableCell>
                   <TableCell>Order Name</TableCell>
-                  <TableCell>Status</TableCell>
                   <TableCell>Priority</TableCell>
-                  <TableCell>Budget</TableCell>
-                  <TableCell>Start Date</TableCell>
-                  <TableCell>Target Date</TableCell>
+                  <TableCell>Current Stage</TableCell>
+                  <TableCell>Current Status</TableCell>
+                  
+                  
+                  
                   <TableCell>Progress</TableCell>
                   <TableCell>Action</TableCell>
                 </TableRow>
@@ -497,26 +496,34 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
                     </TableCell>
                     <TableCell>
                       <Chip 
-                        label={order.status || 'N/A'} 
-                        color={getStatusColor(order.status)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
                         label={order.priority || 'N/A'} 
                         color={getPriorityColor(order.priority)}
                         size="small"
                         variant="outlined"
                       />
                     </TableCell>
-                    <TableCell>{formatCurrency(order.budget)}</TableCell>
-                    <TableCell>{formatDate(order.start_date)}</TableCell>
-                    <TableCell>{formatDate(order.target_completion_date)}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={order.current_stage || 'N/A'} 
+                        color={getStageColor(order.current_stage)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={order.current_status || 'N/A'} 
+                        color={order.current_status}
+                        size="small"
+                      />
+                    </TableCell>
+                    
+                    
+                    
                     <TableCell>
                       {order.progress_percentage !== null && order.progress_percentage !== undefined ? 
                         `${order.progress_percentage}%` : 'N/A'}
                     </TableCell>
+                    
                     <TableCell>
                       {renderActionButton(order)}
                     </TableCell>
@@ -538,8 +545,8 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
           )}
         </Paper>
       ) : (
-        <Alert severity={searchTerm || statusFilter || priorityFilter ? "info" : "warning"} sx={{ mt: 2 }}>
-          {searchTerm || statusFilter || priorityFilter
+        <Alert severity={searchTerm || stageFilter || priorityFilter ? "info" : "warning"} sx={{ mt: 2 }}>
+          {searchTerm || stageFilter || priorityFilter
             ? "No orders matching your search criteria."
             : "No orders available."}
         </Alert>

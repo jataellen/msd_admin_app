@@ -154,12 +154,29 @@ async def create_task(task: TaskCreate, current_user: dict = Depends(get_current
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to create task")
 
-        # If this is an order-related task with a specific status, update order status
-        if task.order_id and task.title and "quote accepted" in task.title.lower():
-            # Update order status to Active if quote is accepted
-            supabase.table("orders").update(
-                {"status": "Active", "last_status_update": now, "updated_at": now}
-            ).eq("order_id", task.order_id).execute()
+        # If this is an order-related task with a specific status, update order stage
+        if task.order_id and task.title:
+            # Get the order to check its current stage
+            order_response = (
+                supabase.table("orders")
+                .select("*")
+                .eq("order_id", task.order_id)
+                .execute()
+            )
+
+            if order_response.data:
+                order = order_response.data[0]
+
+                # Update order stage based on task title/type
+                if "quote accepted" in task.title.lower():
+                    # For quote acceptance tasks, update the order's current stage
+                    supabase.table("orders").update(
+                        {
+                            "current_stage": "QUOTE_ACCEPTED",  # Use appropriate stage ID from workflow
+                            "last_status_update": now,
+                            "updated_at": now,
+                        }
+                    ).eq("order_id", task.order_id).execute()
 
         return {
             "message": "Task created successfully",
@@ -328,27 +345,46 @@ async def update_task(
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to update task")
 
-        # Handle task status change triggers
-        # For example, if a quote acceptance task is completed, update the order status
+        # Handle task status change triggers for order stages
+        now = datetime.now().isoformat()
+
+        # If this task is completed and associated with an order, update order stage accordingly
         if (
             task_update.status == "Completed"
             and current_task["status"] != "Completed"
             and current_task.get("order_id")
-            and current_task.get("title")
-            and "quote" in current_task.get("title", "").lower()
         ):
             order_id = current_task["order_id"]
 
-            # Update order status based on task type
-            if "quote accepted" in current_task.get("title", "").lower():
-                supabase.table("orders").update(
-                    {"status": "Active", "updated_at": datetime.now().isoformat()}
-                ).eq("order_id", order_id).execute()
+            # Get the order
+            order_response = (
+                supabase.table("orders").select("*").eq("order_id", order_id).execute()
+            )
 
-            elif "delivery" in current_task.get("title", "").lower():
-                supabase.table("orders").update(
-                    {"status": "Completed", "updated_at": datetime.now().isoformat()}
-                ).eq("order_id", order_id).execute()
+            if order_response.data:
+                order = order_response.data[0]
+                title_lower = current_task.get("title", "").lower()
+
+                # Update order stage based on task type
+                stage_update = None
+
+                if "quote accepted" in title_lower:
+                    stage_update = "QUOTE_ACCEPTED"
+                elif "delivery" in title_lower or "delivered" in title_lower:
+                    stage_update = "DELIVERED"
+                elif "invoice" in title_lower:
+                    stage_update = "INVOICE_SENT"
+                elif "payment" in title_lower:
+                    stage_update = "PAYMENT_RECEIVED"
+
+                if stage_update:
+                    supabase.table("orders").update(
+                        {
+                            "current_stage": stage_update,
+                            "updated_at": now,
+                            "last_status_update": now,
+                        }
+                    ).eq("order_id", order_id).execute()
 
         return {
             "message": "Task updated successfully",

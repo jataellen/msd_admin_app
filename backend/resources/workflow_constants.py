@@ -1,6 +1,9 @@
 # workflow_constants.py
 
 # Materials Only Workflow Stages
+
+# Consolidated Materials Only Workflow with fewer stages
+# Materials Only Workflow Stages
 MATERIALS_ONLY_STAGES = [
     {
         "id": "LEAD_ACQUISITION",
@@ -30,26 +33,20 @@ MATERIALS_ONLY_STAGES = [
         ],
     },
     {
-        "id": "MATERIALS_MANAGEMENT",
-        "name": "Materials Management",
+        "id": "FULFILLMENT",
+        "name": "Fulfillment",
         "statuses": [
             {"id": "PARTIAL_RECEIVED", "name": "Partial Received"},
             {"id": "MATERIALS_RECEIVED", "name": "Materials Received"},
             {"id": "CUSTOMER_NOTIFIED", "name": "Customer Notified"},
-        ],
-    },
-    {
-        "id": "DELIVERY",
-        "name": "Delivery",
-        "statuses": [
             {"id": "READY_FOR_PICKUP", "name": "Ready for Pickup"},
             {"id": "DELIVERY_SCHEDULED", "name": "Delivery Scheduled"},
             {"id": "DELIVERED", "name": "Delivered"},
         ],
     },
     {
-        "id": "BILLING_COMPLETION",
-        "name": "Billing & Completion",
+        "id": "FINALIZATION",
+        "name": "Finalization",
         "statuses": [
             {"id": "INVOICE_SENT", "name": "Invoice Sent"},
             {"id": "PAYMENT_RECEIVED", "name": "Payment Received"},
@@ -59,7 +56,7 @@ MATERIALS_ONLY_STAGES = [
     },
 ]
 
-# Materials & Installation Workflow Stages
+# Consolidated Materials & Installation Workflow with consistent naming
 MATERIALS_AND_INSTALLATION_STAGES = [
     {
         "id": "LEAD_ACQUISITION",
@@ -80,46 +77,34 @@ MATERIALS_AND_INSTALLATION_STAGES = [
         ],
     },
     {
-        "id": "WORK_ORDER",
-        "name": "Work Order",
+        "id": "PROCUREMENT",
+        "name": "Procurement",
         "statuses": [
             {"id": "WORK_ORDER_CREATED", "name": "Work Order Created"},
             {"id": "WORK_ORDER_SENT", "name": "Work Order Sent"},
             {"id": "WORK_ORDER_SIGNED", "name": "Work Order Signed"},
             {"id": "DEPOSIT_REQUESTED", "name": "Deposit Requested"},
             {"id": "DEPOSIT_RECEIVED", "name": "Deposit Received"},
-        ],
-    },
-    {
-        "id": "PROCUREMENT",
-        "name": "Procurement",
-        "statuses": [
             {"id": "DETAILED_MEASUREMENT", "name": "Detailed Measurement"},
             {"id": "PO_CREATED", "name": "PO Created"},
             {"id": "MATERIALS_ORDERED", "name": "Materials Ordered"},
         ],
     },
     {
-        "id": "PREPARATION",
-        "name": "Preparation",
+        "id": "FULFILLMENT",  # Changed from "EXECUTION" to "FULFILLMENT"
+        "name": "Fulfillment",  # Changed from "Execution" to "Fulfillment"
         "statuses": [
             {"id": "INSTALLATION_SCHEDULED", "name": "Installation Scheduled"},
             {"id": "MATERIALS_RECEIVED", "name": "Materials Received"},
             {"id": "INSTALLATION_READY", "name": "Installation Ready"},
-        ],
-    },
-    {
-        "id": "INSTALLATION",
-        "name": "Installation",
-        "statuses": [
             {"id": "INSTALLATION_IN_PROGRESS", "name": "Installation In Progress"},
             {"id": "INSTALLATION_COMPLETED", "name": "Installation Completed"},
             {"id": "FINAL_INSPECTION", "name": "Final Inspection"},
         ],
     },
     {
-        "id": "BILLING_COMPLETION",
-        "name": "Billing & Completion",
+        "id": "FINALIZATION",
+        "name": "Finalization",
         "statuses": [
             {"id": "INVOICE_SENT", "name": "Invoice Sent"},
             {"id": "PAYMENT_RECEIVED", "name": "Payment Received"},

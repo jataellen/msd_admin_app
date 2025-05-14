@@ -14,44 +14,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
-# Workflow stages for different order types
-WORKFLOW_STAGES = {
-    "MATERIALS_ONLY": [
-        "Quote Requested",
-        "Quote Provided",
-        "Quote Accepted",
-        "Purchase Order Created",
-        "Supplier Confirmed",
-        "Materials Received",
-        "Customer Notified",
-        "Materials Delivered/Picked Up",
-        "Invoice Sent",
-        "Payment Received",
-        "Order Completed",
-    ],
-    "MATERIALS_AND_INSTALLATION": [
-        "Initial Inquiry",
-        "Site Visit Scheduled",
-        "Site Visit Completed",
-        "Quote Created",
-        "Quote Sent",
-        "Quote Accepted",
-        "Work Order Created",
-        "Work Order Signed",
-        "Deposit Received",
-        "Detailed Measurement",
-        "Purchase Orders Created",
-        "Materials Ordered",
-        "Installation Scheduled",
-        "Materials Received",
-        "Installation Begun",
-        "Installation Completed",
-        "Final Invoice Sent",
-        "Payment Received",
-        "Review Requested",
-        "Order Completed",
-    ],
-}
+
+WORKFLOW_STAGES = [
+    "LEAD_ACQUISITION",
+    "QUOTATION",
+    "PROCUREMENT",
+    "FULFILLMENT",
+    "FINALIZATION",
+]
 
 
 # Request/Response models
@@ -60,7 +30,6 @@ class OrderBase(BaseModel):
     description: Optional[str] = None
     location: Optional[str] = None
     customer_id: int
-    status: str
     priority: Optional[str] = None
     start_date: Optional[str] = None
     target_completion_date: Optional[str] = None
@@ -73,7 +42,7 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
-    workflow_type: Optional[str] = "MATERIALS_ONLY"
+    workflow_type: Optional[str] = None
     selected_stages: List[str] = []
 
 
@@ -82,7 +51,6 @@ class OrderUpdate(BaseModel):
     description: Optional[str] = None
     location: Optional[str] = None
     customer_id: Optional[int] = None
-    status: Optional[str] = None
     priority: Optional[str] = None
     start_date: Optional[str] = None
     target_completion_date: Optional[str] = None
@@ -114,47 +82,28 @@ async def create_order(
 
         logger.info(f"Creating new order: {order.order_name}")
 
-        # Validate workflow type
-        workflow_type = order.workflow_type or "MATERIALS_ONLY"
-        if workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
-            raise HTTPException(status_code=400, detail="Invalid workflow type")
-
-        # Determine order type and set default if not provided
-        order_type = order.type or "MATERIALS_ONLY"
-
         # Validate selected stages if provided
         if hasattr(order, "selected_stages") and order.selected_stages:
-            valid_stage_ids = [
-                stage["id"] for stage in get_workflow_stages(workflow_type)
-            ]
-
             for stage_id in order.selected_stages:
-                if stage_id not in valid_stage_ids:
+                if stage_id not in WORKFLOW_STAGES:
                     raise HTTPException(
                         status_code=400, detail=f"Invalid stage ID: {stage_id}"
                     )
 
         # Initialize current_stage to first stage of workflow if not provided
         if not order.current_stage:
-            # If we have selected stages, use the first status of the first selected stage
+            # If we have selected stages, use the first selected stage
             if hasattr(order, "selected_stages") and order.selected_stages:
-                stages = get_workflow_stages(workflow_type)
-                for stage in stages:
-                    if stage["id"] in order.selected_stages and stage["statuses"]:
-                        order.current_stage = stage["statuses"][0]["id"]
-                        break
+                order.current_stage = order.selected_stages[0]
             # Otherwise default to first stage in workflow
-            if not order.current_stage:
-                order.current_stage = WORKFLOW_STAGES[order_type][0]
+            else:
+                order.current_stage = WORKFLOW_STAGES[0]
 
         # Validate stage if provided
-        if (
-            order.current_stage
-            and order.current_stage not in WORKFLOW_STAGES[order_type]
-        ):
+        if order.current_stage and order.current_stage not in WORKFLOW_STAGES:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid stage for order type {order_type}. Valid stages: {', '.join(WORKFLOW_STAGES[order_type])}",
+                detail=f"Invalid stage. Valid stages: {', '.join(WORKFLOW_STAGES)}",
             )
 
         # Current timestamp for created_at and updated_at
@@ -189,7 +138,7 @@ async def create_order(
 
 @router.get("/")
 async def get_orders(
-    status: Optional[str] = None,
+    current_stage: Optional[str] = None,
     type: Optional[str] = None,
     customer_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
@@ -203,8 +152,8 @@ async def get_orders(
         query = supabase.table("orders").select("*")
 
         # Apply filters
-        if status:
-            query = query.eq("status", status)
+        if current_stage:
+            query = query.eq("current_stage", current_stage)
         if type:
             query = query.eq("type", type)
         if customer_id:
@@ -222,11 +171,10 @@ async def get_orders(
         raise HTTPException(status_code=500, detail=f"Error fetching orders: {str(e)}")
 
 
-@router.get("/order-statuses")
-async def get_order_statuses():
-    """Get all valid order statuses"""
-    statuses = ["Lead", "Quoted", "Active", "On Hold", "Completed", "Cancelled"]
-    return {"statuses": statuses}
+@router.get("/order-stages")
+async def get_order_stages():
+    """Get all valid order stages"""
+    return {"stages": WORKFLOW_STAGES}
 
 
 @router.get("/order-priorities")
@@ -239,8 +187,9 @@ async def get_order_priorities():
 @router.get("/order-types")
 async def get_order_types():
     """Get all valid order types"""
-    types = list(WORKFLOW_STAGES.keys())
-    return {"types": types}
+    # Since we no longer have different workflow types,
+    # we'll just return a general "ORDER" type
+    return {"types": ["ORDER"]}
 
 
 @router.get("/{order_id}")
@@ -338,22 +287,24 @@ async def update_order(
         current_order = existing_order.data[0]
 
         # Validate stage if being updated
-        if order_update.current_stage:
-            order_type = order_update.type or current_order.get(
-                "type", "MATERIALS_ONLY"
+        if (
+            order_update.current_stage
+            and order_update.current_stage not in WORKFLOW_STAGES
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid stage. Valid stages: {', '.join(WORKFLOW_STAGES)}",
             )
-            if order_update.current_stage not in WORKFLOW_STAGES.get(order_type, []):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid stage for order type {order_type}. Valid stages: {', '.join(WORKFLOW_STAGES[order_type])}",
-                )
 
         # Prepare update data
         update_data = order_update.dict(exclude_unset=True)
         update_data["updated_at"] = datetime.now().isoformat()
 
-        # Update status tracking timestamp if status is changing
-        if order_update.status and order_update.status != current_order.get("status"):
+        # Update status tracking timestamp if current_stage is changing
+        if (
+            order_update.current_stage
+            and order_update.current_stage != current_order.get("current_stage")
+        ):
             update_data["last_status_update"] = datetime.now().isoformat()
 
         # If budget is being updated, recalculate budget_remaining
@@ -402,17 +353,12 @@ async def update_order_stage(
             )
 
         current_order = existing_order.data[0]
-        order_type = current_order.get("type", "MATERIALS_ONLY")
 
         # Validate stage against workflow
-        valid_stages = WORKFLOW_STAGES.get(
-            order_type, WORKFLOW_STAGES["MATERIALS_ONLY"]
-        )
-
-        if stage_update.stage not in valid_stages:
+        if stage_update.stage not in WORKFLOW_STAGES:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid stage for order type {order_type}. Valid stages: {', '.join(valid_stages)}",
+                detail=f"Invalid stage. Valid stages: {', '.join(WORKFLOW_STAGES)}",
             )
 
         # Current timestamp for updates
@@ -439,17 +385,18 @@ async def update_order_stage(
             )
 
         # Get next stage
-        current_stage_index = valid_stages.index(stage_update.stage)
+        current_stage_index = WORKFLOW_STAGES.index(stage_update.stage)
         next_stage = None
 
         # If not the last stage, advance to next stage
-        if current_stage_index < len(valid_stages) - 1:
-            next_stage = valid_stages[current_stage_index + 1]
+        if current_stage_index < len(WORKFLOW_STAGES) - 1:
+            next_stage = WORKFLOW_STAGES[current_stage_index + 1]
 
         # If last stage, mark order as completed
-        status_update = {}
-        if current_stage_index == len(valid_stages) - 1:
-            status_update = {"status": "Completed", "actual_completion_date": now}
+        completion_update = {}
+        if current_stage_index == len(WORKFLOW_STAGES) - 1:
+            # Instead of changing status, set actual_completion_date
+            completion_update = {"actual_completion_date": now}
 
         # Update order with new stage and completed stages
         update_data = {
@@ -457,13 +404,12 @@ async def update_order_stage(
             "completed_stages": completed_stages,
             "updated_at": now,
             "last_status_update": now,
-            **status_update,
+            **completion_update,
         }
 
-        # If it's a milestone stage, update progress percentage
-        if valid_stages:
-            progress_percent = int((current_stage_index + 1) / len(valid_stages) * 100)
-            update_data["progress_percentage"] = progress_percent
+        # Update progress percentage based on current stage
+        progress_percent = int((current_stage_index + 1) / len(WORKFLOW_STAGES) * 100)
+        update_data["progress_percentage"] = progress_percent
 
         response = (
             supabase.table("orders")
@@ -567,7 +513,7 @@ async def get_order_activities(
 
 @router.delete("/{order_id}")
 async def delete_order(order_id: int, current_user: dict = Depends(get_current_user)):
-    """Delete an order (soft delete by changing status to Cancelled)"""
+    """Delete an order (soft delete by changing to Cancelled stage)"""
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Not authenticated")
@@ -582,10 +528,10 @@ async def delete_order(order_id: int, current_user: dict = Depends(get_current_u
                 status_code=404, detail=f"Order with ID {order_id} not found"
             )
 
-        # Soft delete by changing status to Cancelled
+        # Soft delete by changing to Cancelled stage
         now = datetime.now().isoformat()
         update_data = {
-            "status": "Cancelled",
+            "current_stage": "Order Cancelled",  # Special stage for cancelled orders
             "updated_at": now,
             "last_status_update": now,
         }
@@ -608,16 +554,10 @@ async def delete_order(order_id: int, current_user: dict = Depends(get_current_u
         raise HTTPException(status_code=500, detail=f"Error deleting order: {str(e)}")
 
 
-@router.get("/workflow-stages/{order_type}")
-async def get_workflow_stages_by_type(order_type: str):
-    """Get workflow stages for an order type"""
-    if order_type not in WORKFLOW_STAGES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid order type. Valid types: {', '.join(WORKFLOW_STAGES.keys())}",
-        )
-
-    return {"stages": WORKFLOW_STAGES[order_type]}
+@router.get("/workflow-stages")
+async def get_workflow_stages_endpoint():
+    """Get all workflow stages"""
+    return {"stages": WORKFLOW_STAGES}
 
 
 # Get order history events
@@ -677,9 +617,9 @@ async def get_order_history(
                     "event_id": 2,
                     "order_id": order_id,
                     "event_type": "stage_change",
-                    "description": "Order moved to Quote Prepared stage",
-                    "previous_stage": "Initial Inquiry",
-                    "new_stage": "Quote Prepared",
+                    "description": "Order moved to QUOTATION stage",
+                    "previous_stage": "LEAD_ACQUISITION",
+                    "new_stage": "QUOTATION",
                     "created_by": user_id,
                     "created_at": (current_timestamp - timedelta(days=25)).isoformat(),
                     "user_email": user_email,
@@ -765,28 +705,13 @@ async def add_order_note(
         raise HTTPException(status_code=500, detail=f"Error adding note: {str(e)}")
 
 
-@router.get("/workflow-stages")
-async def get_workflow_stages_endpoint(
-    workflow_type: str = Query(..., description="Type of workflow")
-):
-    """Get workflow stages for a specific workflow type"""
-    if workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid workflow type. Must be MATERIALS_ONLY or MATERIALS_AND_INSTALLATION",
-        )
-
-    stages = get_workflow_stages(workflow_type)
-    return {"stages": stages}
-
-
 @router.post("/{order_id}/update-status")
 async def update_order_status(
     order_id: int,
     new_status: dict,
     current_user: dict = Depends(get_current_user),
 ):
-    """Update order status in workflow"""
+    """Update order stage in workflow"""
     try:
         if not current_user:
             raise HTTPException(status_code=401, detail="Not authenticated")
@@ -806,16 +731,11 @@ async def update_order_status(
         notes = new_status.get("notes", "")
 
         # Validate the new status
-        workflow_type = order.get("workflow_type", "MATERIALS_ONLY")
-        stages = get_workflow_stages(workflow_type)
-        all_statuses = []
-
-        for stage in stages:
-            for status in stage["statuses"]:
-                all_statuses.append(status["id"])
-
-        if status_value not in all_statuses:
-            raise HTTPException(status_code=400, detail="Invalid status")
+        if status_value not in WORKFLOW_STAGES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Valid statuses: {', '.join(WORKFLOW_STAGES)}",
+            )
 
         # Get current status
         current_status = order.get("current_stage")
