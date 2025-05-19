@@ -122,12 +122,27 @@ def get_workflow_stages(workflow_type):
     return MATERIALS_ONLY_STAGES
 
 
-# Function to get all statuses from stages
-def get_all_statuses(stages):
+def get_all_statuses(workflow_type):
+    """
+    Get all status IDs for a specific workflow type.
+
+    Args:
+        workflow_type (str): Type of workflow ("MATERIALS_ONLY" or "MATERIALS_AND_INSTALLATION")
+
+    Returns:
+        list: List of all status IDs for the specified workflow type
+    """
+    stages = []
+    if workflow_type == "MATERIALS_AND_INSTALLATION":
+        stages = MATERIALS_AND_INSTALLATION_STAGES
+    else:
+        stages = MATERIALS_ONLY_STAGES
+
     statuses = []
     for stage in stages:
         for status in stage["statuses"]:
             statuses.append(status)
+
     return statuses
 
 

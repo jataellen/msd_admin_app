@@ -177,6 +177,24 @@ async def get_order_stages():
     return {"stages": WORKFLOW_STAGES}
 
 
+@router.get("/order-statuses")
+async def get_order_statuses(
+    workflow_type: str = Query("MATERIALS_ONLY", description="Type of workflow")
+):
+    """Get all valid order statuses for a specific workflow type"""
+    # Validate workflow type
+    if workflow_type not in ["MATERIALS_ONLY", "MATERIALS_AND_INSTALLATION"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid workflow type. Must be MATERIALS_ONLY or MATERIALS_AND_INSTALLATION",
+        )
+
+    # Get all statuses for the specified workflow type
+    statuses = get_all_statuses(workflow_type)
+
+    return {"statuses": statuses}
+
+
 @router.get("/order-priorities")
 async def get_order_priorities():
     """Get all valid order priorities"""
