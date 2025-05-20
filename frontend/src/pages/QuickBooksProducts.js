@@ -1,5 +1,5 @@
-// src/pages/QuickBooksProducts.js
-import React, { useState, useEffect } from 'react';
+// src/pages/QuickBooksProducts.js - FIXED VERSION
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
   Box,
@@ -51,9 +51,15 @@ const QuickBooksProducts = () => {
   const [lastSync, setLastSync] = useState(null);
   const [syncing, setSyncing] = useState(false);
   
-  // Fetch products on component mount
+  // Use a ref to track if initial fetch has completed
+  const initialFetchCompleted = useRef(false);
+  
+  // Fetch products on component mount only once
   useEffect(() => {
-    fetchProducts();
+    if (!initialFetchCompleted.current) {
+      fetchProducts();
+      initialFetchCompleted.current = true;
+    }
   }, []);
   
   // Filter products based on search term
@@ -94,12 +100,17 @@ const QuickBooksProducts = () => {
           setLastSync(new Date(response.data.last_synced_at));
         }
       } else {
+        // Handle case where products array isn't in the response
         setProducts([]);
         setFilteredProducts([]);
       }
     } catch (err) {
       console.error('Error fetching products:', err);
+      // Set a user-friendly error message
       setError('Failed to load products from QuickBooks. Please check your connection and try again.');
+      // Initialize empty arrays to prevent undefined errors
+      setProducts([]);
+      setFilteredProducts([]);
     } finally {
       setLoading(false);
     }
@@ -107,6 +118,8 @@ const QuickBooksProducts = () => {
   
   // Sync products with QuickBooks
   const syncProducts = async () => {
+    if (syncing) return; // Prevent multiple simultaneous sync requests
+    
     setSyncing(true);
     setSyncStatus('syncing');
     
@@ -178,6 +191,13 @@ const QuickBooksProducts = () => {
     }
   };
   
+  // Handle manual refresh button click
+  const handleManualRefresh = () => {
+    if (!loading && !syncing) {
+      fetchProducts();
+    }
+  };
+  
   return (
     <Box sx={{ maxWidth: '100%', overflowX: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -190,7 +210,7 @@ const QuickBooksProducts = () => {
             variant="outlined" 
             color="primary" 
             startIcon={<RefreshIcon />}
-            onClick={fetchProducts}
+            onClick={handleManualRefresh}
             disabled={loading || syncing}
             sx={{ mr: 1 }}
           >
@@ -257,7 +277,7 @@ const QuickBooksProducts = () => {
           severity="error" 
           sx={{ mb: 3 }}
           action={
-            <Button color="inherit" size="small" onClick={fetchProducts}>
+            <Button color="inherit" size="small" onClick={handleManualRefresh}>
               Retry
             </Button>
           }
@@ -316,8 +336,8 @@ const QuickBooksProducts = () => {
               </TableHead>
               <TableBody>
                 {currentProducts.map((product) => (
-                  <TableRow key={product.id} hover>
-                    <TableCell sx={{ fontWeight: 'medium' }}>{product.name}</TableCell>
+                  <TableRow key={product.id || Math.random()} hover>
+                    <TableCell sx={{ fontWeight: 'medium' }}>{product.name || 'N/A'}</TableCell>
                     <TableCell>{product.sku || 'N/A'}</TableCell>
                     <TableCell>
                       <Chip 

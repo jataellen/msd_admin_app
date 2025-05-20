@@ -19,7 +19,6 @@ import {
 // Page imports
 import Dashboard from "./components/Dashboard";
 import Tasks from "./pages/Tasks";
-import QuickBooksIntegration from "./pages/QuickBooksIntegration";
 import QuickBooksProducts from "./pages/QuickBooksProducts";
 import QuickBooksSetup from "./pages/QuickBooksSetup";
 import QuickBooksCallback from "./pages/QuickBooksCallback";
@@ -28,7 +27,6 @@ import Navbar from "./components/Navbar";
 import OrderList from "./pages/OrderList";
 import OrderDetail from "./pages/OrderDetail";
 import OrderForm from "./pages/OrderForm";
-import QuickBooksInvoiceGenerator from "./pages/QuickBooksInvoiceGenerator";
 
 // Create a custom theme
 const theme = createTheme({
@@ -188,11 +186,9 @@ const AppContent = () => {
             <Route path="/tasks" element={<Tasks />} />
             
             {/* QuickBooks Routes */}
-            <Route path="/quickbooks" element={<QuickBooksIntegration />} />
             <Route path="/quickbooks/setup" element={<QuickBooksSetup />} />
             <Route path="/quickbooks/products" element={<QuickBooksProducts />} />
             <Route path="/quickbooks/callback" element={<QuickBooksCallback />} />
-            <Route path="/quickbooks/push/invoice/:id" element={<QuickBooksInvoiceGenerator />} />
             
             {/* Order Routes */}
             <Route path="/orders" element={<OrderList />} />
