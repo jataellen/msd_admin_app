@@ -1,4 +1,4 @@
-// src/components/Navbar.js - Updated with combined order tracking
+// src/components/Navbar.js - Updated with QuickBooks navigation
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +21,9 @@ import {
   Divider,
   Menu,
   MenuItem,
-  Tooltip
+  Tooltip,
+  Collapse,
+  ListItemButton
 } from '@mui/material';
 
 // Material UI icons
@@ -39,13 +41,25 @@ import {
   Receipt as ReceiptIcon,
   ShoppingCart as ShoppingCartIcon,
   People as PeopleIcon,
-  SyncAlt as SyncAltIcon
+  SyncAlt as SyncAltIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
+  HomeRepairService as BuildIcon,
+  Inventory2 as InventoryIcon
 } from '@mui/icons-material';
 
 // Sidebar/Drawer component
 const Sidebar = ({ open, onClose }) => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  
+  // State for nested menu items
+  const [quickbooksOpen, setQuickbooksOpen] = useState(false);
+  
+  const handleQuickbooksToggle = () => {
+    setQuickbooksOpen(!quickbooksOpen);
+  };
   
   const handleNavigation = (path) => {
     navigate(path);
@@ -169,12 +183,48 @@ const Sidebar = ({ open, onClose }) => {
                 />
               </ListItem>
               
-              <ListItem button onClick={() => handleNavigation('/quickbooks')}>
+              {/* QuickBooks Section with Sub-menu */}
+              <ListItemButton onClick={handleQuickbooksToggle}>
                 <ListItemIcon>
                   <SyncAltIcon />
                 </ListItemIcon>
                 <ListItemText primary="QuickBooks" />
-              </ListItem>
+                {quickbooksOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </ListItemButton>
+              
+              <Collapse in={quickbooksOpen} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  <ListItemButton 
+                    sx={{ pl: 4 }} 
+                    onClick={() => handleNavigation('/quickbooks/setup')}
+                  >
+                    <ListItemIcon>
+                      <BuildIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Setup & Connection" />
+                  </ListItemButton>
+                  
+                  <ListItemButton 
+                    sx={{ pl: 4 }} 
+                    onClick={() => handleNavigation('/quickbooks/products')}
+                  >
+                    <ListItemIcon>
+                      <InventoryIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Products" />
+                  </ListItemButton>
+                  
+                  <ListItemButton 
+                    sx={{ pl: 4 }} 
+                    onClick={() => handleNavigation('/quickbooks')}
+                  >
+                    <ListItemIcon>
+                      <SyncAltIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary="Legacy Dashboard" />
+                  </ListItemButton>
+                </List>
+              </Collapse>
               
               <Divider />
               
@@ -262,8 +312,8 @@ const Navbar = () => {
                 <Button color="inherit" component={Link} to="/orders" sx={{ mr: 1 }}>
                   Orders
                 </Button>
-                <Button color="inherit" component={Link} to="/quickbooks" sx={{ mr: 1 }}>
-                  QuickBooks
+                <Button color="inherit" component={Link} to="/quickbooks/products" sx={{ mr: 1 }}>
+                  QuickBooks Products
                 </Button>
               </Box>
               

@@ -1,4 +1,4 @@
-// src/App.js - Updated with improved navigation flow
+// src/App.js - Updated with QuickBooks routes
 import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -20,6 +20,9 @@ import {
 import Dashboard from "./components/Dashboard";
 import Tasks from "./pages/Tasks";
 import QuickBooksIntegration from "./pages/QuickBooksIntegration";
+import QuickBooksProducts from "./pages/QuickBooksProducts";
+import QuickBooksSetup from "./pages/QuickBooksSetup";
+import QuickBooksCallback from "./pages/QuickBooksCallback";
 import Login from "./pages/Login";
 import Navbar from "./components/Navbar";
 import OrderList from "./pages/OrderList";
@@ -183,15 +186,21 @@ const AppContent = () => {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/tasks" element={<Tasks />} />
-            <Route path="/quickbooks" element={<QuickBooksIntegration />} />
             
-            {/* Order Routes - Simplified Structure */}
+            {/* QuickBooks Routes */}
+            <Route path="/quickbooks" element={<QuickBooksIntegration />} />
+            <Route path="/quickbooks/setup" element={<QuickBooksSetup />} />
+            <Route path="/quickbooks/products" element={<QuickBooksProducts />} />
+            <Route path="/quickbooks/callback" element={<QuickBooksCallback />} />
+            <Route path="/quickbooks/push/invoice/:id" element={<QuickBooksInvoiceGenerator />} />
+            
+            {/* Order Routes */}
             <Route path="/orders" element={<OrderList />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/orders/add" element={<OrderForm />} />
             <Route path="/orders/:id/edit" element={<OrderForm />} />
-            <Route path="/quickbooks/push/invoice/:id" element={<QuickBooksInvoiceGenerator />} />
             
+            {/* Other Routes */}
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
             <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />
