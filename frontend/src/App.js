@@ -1,4 +1,4 @@
-// src/App.js - Updated with QuickBooks routes
+// src/App.js - Updated with QuickBooks routes and fixed axios interceptor
 import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -27,6 +27,9 @@ import Navbar from "./components/Navbar";
 import OrderList from "./pages/OrderList";
 import OrderDetail from "./pages/OrderDetail";
 import OrderForm from "./pages/OrderForm";
+
+// Define the API URL for backend
+const API_URL = 'http://localhost:8000';
 
 // Create a custom theme
 const theme = createTheme({
@@ -74,8 +77,8 @@ const setupAxiosInterceptors = (checkAuthStatus) => {
         originalRequest._retry = true;
         
         try {
-          // Try to refresh the token
-          await axios.post("/refresh-token");
+          // Use the full API URL instead of a relative path
+          await axios.post(`${API_URL}/refresh-token`, {}, { withCredentials: true });
           
           // If successful, retry the original request
           return axios(originalRequest);

@@ -1,5 +1,5 @@
 // src/pages/QuickBooksProducts.js - FIXED VERSION
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box,
@@ -51,15 +51,10 @@ const QuickBooksProducts = () => {
   const [lastSync, setLastSync] = useState(null);
   const [syncing, setSyncing] = useState(false);
   
-  // Use a ref to track if initial fetch has completed
-  const initialFetchCompleted = useRef(false);
-  
-  // Fetch products on component mount only once
+  // Fetch products on component mount
   useEffect(() => {
-    if (!initialFetchCompleted.current) {
-      fetchProducts();
-      initialFetchCompleted.current = true;
-    }
+    fetchProducts();
+    // The empty dependency array ensures this effect runs only once on mount
   }, []);
   
   // Filter products based on search term
