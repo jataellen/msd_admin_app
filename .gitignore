@@ -1,1 +1,2 @@
-claude-env/bin/activate
+claude-env*
+*.env
