@@ -53,7 +53,13 @@ import {
   Payment as PaymentIcon,
   Description as DocumentIcon,
   Create as CreateIcon,
-  Update as UpdateIcon
+  Update as UpdateIcon,
+  Add as AddIcon,
+  Task as TaskIcon,
+  AttachFile as AttachFileIcon,
+  CreditCard as CreditCardIcon,
+  LocalShipping as ShippingIcon,
+  Build as BuildIcon
 } from '@mui/icons-material';
 
 const API_URL = 'http://localhost:8000';
@@ -85,6 +91,10 @@ const STATUS_COLORS = {
 
 // Event type definitions with icons and colors
 const EVENT_TYPES = {
+  'order_creation': { icon: <CreateIcon />, color: 'success', label: 'Order Created' },
+  'workflow_status_change': { icon: <AssignmentIcon />, color: 'primary', label: 'Status Change' },
+  'stage_completion': { icon: <CheckIcon />, color: 'success', label: 'Stage Complete' },
+  'stage_transition': { icon: <ArrowForwardIcon />, color: 'info', label: 'Stage Transition' },
   'stage_change': { icon: <TimelineIcon />, color: 'primary', label: 'Stage Change' },
   'note': { icon: <CommentIcon />, color: 'secondary', label: 'Note' },
   'creation': { icon: <CreateIcon />, color: 'success', label: 'Created' },
@@ -93,6 +103,44 @@ const EVENT_TYPES = {
   'payment': { icon: <PaymentIcon />, color: 'error', label: 'Payment' },
   'status_change': { icon: <AssignmentIcon />, color: 'info', label: 'Status Change' },
   'default': { icon: <HistoryIcon />, color: 'default', label: 'Event' }
+};
+
+// Map workflow status to stage - same logic as backend
+const mapWorkflowStatusToStage = (workflowStatus) => {
+  if (!workflowStatus) return "LEAD_ACQUISITION";
+  
+  const status = workflowStatus.toUpperCase();
+  
+  // LEAD_ACQUISITION stage
+  if (['NEW_LEAD', 'QUOTE_REQUESTED', 'SITE_VISIT_SCHEDULED', 'SITE_VISIT_COMPLETED', 'DETAILED_MEASUREMENT_SCHEDULED', 'DETAILED_MEASUREMENT_COMPLETED'].includes(status)) {
+    return 'LEAD_ACQUISITION';
+  }
+  // QUOTATION stage
+  else if (['QUOTE_PREPARED', 'QUOTE_SENT', 'QUOTE_APPROVED', 'QUOTE_ACCEPTED'].includes(status)) {
+    return 'QUOTATION';
+  }
+  // PROCUREMENT stage
+  else if (['WORK_ORDER_SENT', 'WORK_ORDER_SIGNED', 'MATERIALS_ORDERED', 'MATERIALS_RECEIVED', 'MATERIALS_BACKORDERED', 'WORK_ORDER_CREATED', 'DEPOSIT_REQUESTED', 'DEPOSIT_RECEIVED', 'DEPOSIT_PENDING', 'DETAILED_MEASUREMENT', 'PO_CREATED', 'PO_SENT', 'SUPPLIER_CONFIRMED'].includes(status)) {
+    return 'PROCUREMENT';
+  }
+  // FULFILLMENT stage
+  else if (['DELIVERY_SCHEDULED', 'DELIVERY_COMPLETED', 'DELIVERED', 'INSTALLATION_SCHEDULED', 'INSTALLATION_IN_PROGRESS', 'INSTALLATION_COMPLETED', 'DELIVERY_DELAYED', 'INSTALLATION_DELAYED', 'MATERIALS_RECEIVED', 'INSTALLATION_READY', 'FINAL_INSPECTION', 'PARTIAL_RECEIVED', 'CUSTOMER_NOTIFIED', 'READY_FOR_PICKUP', 'IN_TRANSIT'].includes(status)) {
+    return 'FULFILLMENT';
+  }
+  // FINALIZATION stage
+  else if (['PAYMENT_RECEIVED', 'ORDER_COMPLETED', 'COMPLETED', 'FOLLOW_UP_SCHEDULED', 'FOLLOW_UP_SENT', 'INVOICE_SENT', 'REVIEW_REQUESTED', 'PENDING_FINAL_PAYMENT'].includes(status)) {
+    return 'FINALIZATION';
+  }
+  // Handle special cases
+  else if (['ORDER_CANCELLED', 'QUOTE_REJECTED'].includes(status)) {
+    return 'CANCELLED';
+  }
+  else if (['CUSTOMER_COMMUNICATION_NEEDED', 'AWAITING_CUSTOMER_APPROVAL', 'CHANGE_ORDER_REQUESTED', 'PAYMENT_PENDING'].includes(status)) {
+    return 'ON_HOLD';
+  }
+  else {
+    return 'LEAD_ACQUISITION'; // Default fallback
+  }
 };
 
 const CombinedOrderTracking = ({ orderId, orderData }) => {
@@ -228,13 +276,13 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
     }
     
     try {
-      const response = await axios.get(`${API_URL}/orders/${orderId}/history`, {
+      const response = await axios.get(`${API_URL}/order-events/${orderId}`, {
         withCredentials: true
       });
       
-      if (response.data && response.data.events) {
-        setEvents(response.data.events);
-        setFilteredEvents(response.data.events);
+      if (response.data) {
+        setEvents(response.data);
+        setFilteredEvents(response.data);
       } else {
         setEvents([]);
         setFilteredEvents([]);
@@ -399,7 +447,7 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
     
     try {
       await axios.post(
-        `${API_URL}/orders/${orderId}/notes`,
+        `${API_URL}/order-events/${orderId}/note`,
         { note: newNote },
         { withCredentials: true }
       );
@@ -471,7 +519,44 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
     return 'Unknown User';
   };
   
-  // Organize events by stage
+  // Create a chronological timeline that combines workflow statuses and events
+  const createChronologicalTimeline = () => {
+    const timelineItems = [];
+    
+    // Add workflow status completions from order history
+    if (order && order.status_history && Array.isArray(order.status_history)) {
+      order.status_history.forEach(statusCompletion => {
+        const status = findStatusById(statusCompletion.status);
+        if (status) {
+          timelineItems.push({
+            type: 'status_completion',
+            timestamp: new Date(statusCompletion.completed_at),
+            status: status,
+            notes: statusCompletion.notes,
+            completed_by: statusCompletion.completed_by,
+            data: statusCompletion
+          });
+        }
+      });
+    }
+    
+    // Add events from history
+    filteredEvents.forEach(event => {
+      timelineItems.push({
+        type: 'event',
+        timestamp: new Date(event.created_at),
+        event: event,
+        data: event
+      });
+    });
+    
+    // Sort chronologically (oldest first)
+    timelineItems.sort((a, b) => a.timestamp - b.timestamp);
+    
+    return timelineItems;
+  };
+  
+  // Organize events by stage with better timestamp-based assignment
   const organizeEventsByStage = () => {
     const stageMap = {};
     
@@ -480,37 +565,58 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
       stageMap[stage.id] = [];
     });
     
-    // Add a "general" category for events not tied to a specific stage
-    stageMap['general'] = [];
-    
-    // Process each event
+    // Build a timeline of status changes from events
+    const statusChanges = [];
     filteredEvents.forEach(event => {
-      // Try to associate event with a stage
+      if (event.event_type === 'workflow_status_change' && event.new_stage) {
+        statusChanges.push({
+          timestamp: new Date(event.created_at),
+          status: event.new_stage
+        });
+      }
+    });
+    
+    // Sort status changes chronologically
+    statusChanges.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Process each event and assign it to the appropriate stage
+    filteredEvents.forEach(event => {
       let stageId = null;
+      const eventTimestamp = new Date(event.created_at);
       
-      // For stage_change events, use the new stage
-      if (event.event_type === 'stage_change' && event.new_stage) {
-        // Find stage by name
-        const stage = workflowStages.find(s => s.name === event.new_stage);
-        if (stage) {
-          stageId = stage.id;
+      // For order creation events, always put in LEAD_ACQUISITION
+      if (event.event_type === 'order_creation') {
+        stageId = 'LEAD_ACQUISITION';
+      }
+      // For workflow_status_change events, find the stage that contains the new status
+      else if (event.event_type === 'workflow_status_change' && event.new_stage) {
+        // Use the mapping function from backend
+        const mappedStage = mapWorkflowStatusToStage(event.new_stage);
+        stageId = mappedStage;
+      }
+      // For other events, find which status was active at that time
+      else {
+        // Find the most recent status change before this event
+        let activeStatus = order?.workflow_status || 'NEW_LEAD'; // Default to initial status
+        
+        for (const change of statusChanges) {
+          if (change.timestamp <= eventTimestamp) {
+            activeStatus = change.status;
+          } else {
+            break;
+          }
         }
+        
+        // Find which stage contains this status using the mapping
+        stageId = mapWorkflowStatusToStage(activeStatus);
       }
       
-      // For status_change events, find the stage that contains this status
-      if (event.event_type === 'status_change' && event.metadata && event.metadata.status_id) {
-        const stage = findStageForStatus(event.metadata.status_id);
-        if (stage) {
-          stageId = stage.id;
-        }
-      }
-      
-      // If we couldn't associate with a specific stage, put in "general"
-      if (!stageId) {
-        stageMap['general'].push(event);
-      } else {
-        // Add to the appropriate stage
+      // Add to the appropriate stage
+      if (stageId && stageMap[stageId]) {
         stageMap[stageId].push(event);
+      } else if (workflowStages.length > 0) {
+        // Fallback to first stage
+        stageMap[workflowStages[0].id].push(event);
       }
     });
     
@@ -573,8 +679,8 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
   const currentStage = findStageForStatus(order.current_status) || 
                      { id: 'UNKNOWN', name: 'Unknown Stage' };
   
-  // Any general events that aren't tied to a specific stage
-  const generalEvents = stageEvents['general'] || [];
+  // Create chronological timeline
+  const chronologicalTimeline = createChronologicalTimeline();
   
   return (
     <Box>
@@ -765,113 +871,50 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
         <Divider />
         
         <Box sx={{ maxHeight: 600, overflow: 'auto' }}>
-          {/* General events that aren't tied to a specific stage */}
-          {generalEvents.length > 0 && (
-            <Box sx={{ px: 2, pt: 2, mb: 2 }}>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'grey.50', 
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'divider'
-              }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  General Order Activity
-                </Typography>
-                
-                <Box sx={{ ml: 1 }}>
-                  {generalEvents.map((event, index) => {
-                    const eventTypeInfo = getEventTypeInfo(event.event_type);
-                    
-                    return (
-                      <Box 
-                        key={event.event_id || index}
-                        sx={{ 
-                          position: 'relative',
-                          borderLeft: '2px solid',
-                          borderLeftColor: `${eventTypeInfo.color}.main`,
-                          pl: 2,
-                          py: 1,
-                          mb: 2,
-                          bgcolor: 'background.paper',
-                          borderRadius: '0 4px 4px 0',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                          <Avatar 
-                            sx={{ 
-                              width: 32, 
-                              height: 32, 
-                              mr: 1.5,
-                              bgcolor: `${eventTypeInfo.color}.main`,
-                              fontSize: '0.875rem'
-                            }}
-                          >
-                            {eventTypeInfo.icon}
-                          </Avatar>
-                          
-                          <Box sx={{ flex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                {event.description}
-                              </Typography>
-                              
-                              <Chip 
-                                label={eventTypeInfo.label}
-                                color={eventTypeInfo.color}
-                                size="small"
-                                variant="outlined"
-                                sx={{ height: 20, '& .MuiChip-label': { px: 1, py: 0.25, fontSize: '0.7rem' } }}
-                              />
-                            </Box>
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, fontSize: '0.75rem' }}>
-                              <PersonIcon fontSize="inherit" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                              <Typography variant="caption" color="text.secondary" component="span">
-                                {getUserDisplay(event)}
-                              </Typography>
-                              
-                              <Box sx={{ mx: 0.5, color: 'text.disabled' }}>•</Box>
-                              
-                              <EventIcon fontSize="inherit" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                              <Typography variant="caption" color="text.secondary" component="span">
-                                {formatDate(event.created_at)}
-                              </Typography>
-                            </Box>
-                            
-                            {event.metadata && Object.keys(event.metadata).length > 0 && (
-                              <Box sx={{ 
-                                mt: 1, 
-                                p: 1, 
-                                bgcolor: 'background.default',
-                                borderRadius: 1,
-                                fontSize: '0.75rem'
-                              }}>
-                                {Object.entries(event.metadata).map(([key, value]) => (
-                                  <Typography key={key} variant="caption" display="block">
-                                    <strong>{key.replace(/_/g, ' ')}:</strong> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                  </Typography>
-                                ))}
-                              </Box>
-                            )}
-                          </Box>
-                        </Box>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Box>
-            </Box>
-          )}
-          
           {/* Workflow Timeline with Integrated History */}
           <Stepper activeStep={activeStep} orientation="vertical" sx={{ pb: 2, pt: searchTerm ? 1 : 0 }}>
             {workflowStages.map((stage, index) => {
               const isStageActive = isStageCurrentlyActive(stage.id);
               const isFullyCompleted = isStageFullyCompleted(stage.id);
               const hasAnyCompleted = hasStageAnyCompletedStatus(stage.id);
+              
+              // Get all timeline items for this stage (status completions + events)
+              const stageTimelineItems = [];
+              
+              // Add status completions for this stage
+              if (order && order.status_history && Array.isArray(order.status_history)) {
+                order.status_history.forEach(statusCompletion => {
+                  const status = findStatusById(statusCompletion.status);
+                  if (status && stage.statuses && stage.statuses.some(s => s.id === status.id)) {
+                    stageTimelineItems.push({
+                      type: 'status_completion',
+                      timestamp: new Date(statusCompletion.completed_at),
+                      status: status,
+                      notes: statusCompletion.notes,
+                      completed_by: statusCompletion.completed_by,
+                      data: statusCompletion
+                    });
+                  }
+                });
+              }
+              
+              // Add events for this stage
               const stageHistoryEvents = stageEvents[stage.id] || [];
+              stageHistoryEvents.forEach(event => {
+                stageTimelineItems.push({
+                  type: 'event',
+                  timestamp: new Date(event.created_at),
+                  event: event,
+                  data: event
+                });
+              });
+              
+              // Sort chronologically
+              stageTimelineItems.sort((a, b) => a.timestamp - b.timestamp);
+              
+              // Get current status in this stage
+              const currentStatusInStage = order && stage.statuses?.find(s => s.id === order.workflow_status);
+              const hasCurrentStatus = !!currentStatusInStage;
               
               return (
                 <Step 
@@ -884,214 +927,478 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
                       color: isFullyCompleted ? 'success' : isStageActive ? 'primary' : 'default'
                     }}
                   >
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: isStageActive ? 600 : 500,
-                        color: isFullyCompleted ? 'success.main' : isStageActive ? 'primary.main' : 'text.primary'
-                      }}
-                    >
-                      {stage.name}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography 
+                        variant="subtitle1" 
+                        sx={{ 
+                          fontWeight: isStageActive ? 700 : 600,
+                          color: isFullyCompleted ? 'success.main' : isStageActive ? 'primary.main' : 'text.primary'
+                        }}
+                      >
+                        {stage.name}
+                      </Typography>
+                      {isStageActive && !isFullyCompleted && (
+                        <Chip 
+                          label="Active" 
+                          color="primary" 
+                          size="small" 
+                          sx={{ ml: 2 }}
+                        />
+                      )}
+                    </Box>
                   </StepLabel>
                   
-                  <StepContent sx={{ px: 1, py: 0.5 }}>
+                  <StepContent sx={{ px: 1, py: 1 }}>
                     <Box sx={{ 
                       ml: 1, 
                       pl: 1, 
                       borderLeft: isStageActive ? '2px solid' : '1px dashed', 
                       borderColor: isStageActive ? 'primary.main' : 'divider'
                     }}>
-                      {/* Display all statuses in this stage */}
-                      {stage.statuses && stage.statuses.map(status => {
-                        const isCompleted = isStatusCompleted(status.id);
-                        const isCurrent = isCurrentStatus(status.id);
-                        const completionInfo = getStatusCompletionInfo(status.id);
+                      {/* Create merged timeline of statuses and events */}
+                      {(() => {
+                        const mergedTimeline = [];
                         
-                        return (
-                          <Box 
-                            key={status.id} 
-                            sx={{ 
-                              display: 'flex', 
-                              alignItems: 'flex-start', 
-                              py: 1,
-                              borderBottom: '1px dashed',
-                              borderColor: 'divider'
-                            }}
-                          >
-                            <Box sx={{ mr: 1, mt: 0.5, minWidth: 22 }}>
-                              {isCompleted ? (
-                                <CheckIcon color="success" fontSize="small" />
-                              ) : isCurrent ? (
-                                <TimelineIcon color="primary" fontSize="small" />
-                              ) : (
-                                <CircleIcon sx={{ color: 'grey.300', fontSize: 14 }} />
-                              )}
-                            </Box>
-                            
-                            <Box sx={{ flexGrow: 1 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    fontWeight: isCurrent ? 600 : isCompleted ? 500 : 400,
-                                    color: isCompleted ? 'success.main' : isCurrent ? 'primary.main' : 'text.secondary'
-                                  }}
-                                >
-                                  {status.name}
-                                </Typography>
-                                
-                                {isCompleted && (
-                                  <Tooltip title={`Completed on ${formatDate(completionInfo?.completed_at)}`}>
-                                    <Chip 
-                                      label="Completed" 
-                                      color="success" 
-                                      size="small" 
-                                      variant="outlined"
-                                      sx={{ height: 20, '& .MuiChip-label': { px: 1, py: 0.25, fontSize: '0.7rem' } }}
-                                    />
-                                  </Tooltip>
-                                )}
-                                
-                                {isCurrent && (
-                                  <Chip 
-                                    label="Current" 
-                                    color="primary" 
-                                    size="small" 
-                                    variant="filled"
-                                    sx={{ height: 20, '& .MuiChip-label': { px: 1, py: 0.25, fontSize: '0.7rem' } }}
-                                  />
-                                )}
-                              </Box>
-                              
-                              {isCompleted && completionInfo?.notes && (
-                                <Tooltip title={completionInfo.notes}>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                                    <NoteIcon sx={{ fontSize: 14, mr: 0.5, color: 'text.secondary' }} />
-                                    <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 250 }}>
-                                      {completionInfo.notes}
-                                    </Typography>
-                                  </Box>
-                                </Tooltip>
-                              )}
-                              
-                              {isCurrent && (
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  color="primary"
-                                  onClick={() => handleStatusUpdate(status.id)}
-                                  sx={{ mt: 1, textTransform: 'none', px: 1.5, py: 0.25 }}
-                                >
-                                  Complete & Continue
-                                </Button>
-                              )}
-                            </Box>
-                          </Box>
-                        );
-                      })}
-                      
-                      {/* Display history events related to this stage */}
-                      {stageHistoryEvents.length > 0 && (
-                        <Box sx={{ mt: 1, mb: 2, pl: 1 }}>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, mt: 1 }}>
-                            Stage History
-                          </Typography>
+                        // Add all statuses - completed ones will show as events, current and outstanding ones will show as status items
+                        stage.statuses && stage.statuses.forEach(status => {
+                          const isCompleted = isStatusCompleted(status.id);
+                          const isCurrent = isCurrentStatus(status.id);
                           
-                          {stageHistoryEvents.map((event, index) => {
-                            const eventTypeInfo = getEventTypeInfo(event.event_type);
+                          // Check if this status has already been passed in the workflow
+                          // by checking if there's a later completed status
+                          let isAlreadyPassed = false;
+                          if (!isCompleted && !isCurrent && order && order.status_history) {
+                            // Find the index of this status in the workflow
+                            const statusIndex = workflowStatuses.findIndex(s => s.id === status.id);
+                            
+                            // Check if any status after this one has been completed
+                            for (let i = statusIndex + 1; i < workflowStatuses.length; i++) {
+                              if (isStatusCompleted(workflowStatuses[i].id)) {
+                                isAlreadyPassed = true;
+                                break;
+                              }
+                            }
+                          }
+                          
+                          // Only add uncompleted statuses that haven't been skipped/passed
+                          if (!isCompleted && !isAlreadyPassed) {
+                            mergedTimeline.push({
+                              type: 'status',
+                              timestamp: null,
+                              status: status,
+                              isCompleted: false,
+                              isCurrent: isCurrent,
+                              completionData: null,
+                              sortOrder: 4 // Put uncompleted statuses at the end
+                            });
+                          }
+                        });
+                        
+                        // Add all events for this stage
+                        stageTimelineItems.forEach(item => {
+                          mergedTimeline.push({
+                            ...item,
+                            sortOrder: 2 // Events in the middle
+                          });
+                        });
+                        
+                        // Sort by timestamp (completed items) or by sortOrder (pending items)
+                        mergedTimeline.sort((a, b) => {
+                          // Both have timestamps - sort chronologically
+                          if (a.timestamp && b.timestamp) {
+                            return a.timestamp - b.timestamp;
+                          }
+                          // One has timestamp, it comes first
+                          if (a.timestamp && !b.timestamp) return -1;
+                          if (!a.timestamp && b.timestamp) return 1;
+                          // Neither has timestamp, sort by order
+                          return a.sortOrder - b.sortOrder;
+                        });
+                        
+                        return mergedTimeline.map((item, index) => {
+                          // Render status items
+                          if (item.type === 'status') {
+                            const { status, isCompleted, isCurrent, completionData } = item;
                             
                             return (
                               <Box 
-                                key={event.event_id || index}
+                                key={`status-${status.id}-${index}`} 
                                 sx={{ 
-                                  position: 'relative',
-                                  borderLeft: '2px solid',
-                                  borderLeftColor: `${eventTypeInfo.color}.main`,
-                                  pl: 2,
-                                  py: 1,
-                                  mb: 2,
-                                  bgcolor: 'background.paper',
-                                  borderRadius: '0 4px 4px 0',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                  display: 'flex', 
+                                  alignItems: 'flex-start', 
+                                  py: 1.5,
+                                  mb: 1,
+                                  borderRadius: 1,
+                                  bgcolor: isCompleted ? 'success.50' : isCurrent ? 'primary.50' : 'grey.50',
+                                  px: 1,
+                                  border: '1px solid',
+                                  borderColor: isCompleted ? 'success.200' : isCurrent ? 'primary.200' : 'grey.200',
+                                  opacity: !isCompleted && !isCurrent ? 0.7 : 1
                                 }}
                               >
-                                <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                                  <Avatar 
+                                <Box sx={{ mr: 1.5, mt: 0.5, minWidth: 24 }}>
+                                  {isCompleted ? (
+                                    <CheckIcon color="success" fontSize="small" />
+                                  ) : isCurrent ? (
+                                    <TimelineIcon color="primary" fontSize="small" />
+                                  ) : (
+                                    <CircleIcon sx={{ color: 'grey.400', fontSize: 16 }} />
+                                  )}
+                                </Box>
+                                
+                                <Box sx={{ flexGrow: 1 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                    <Typography 
+                                      variant="body2" 
+                                      sx={{ 
+                                        fontWeight: isCurrent ? 600 : isCompleted ? 500 : 400,
+                                        color: isCompleted ? 'success.dark' : isCurrent ? 'primary.dark' : 'grey.600'
+                                      }}
+                                    >
+                                      {status.name}
+                                    </Typography>
+                                    
+                                    {isCompleted && (
+                                      <Chip 
+                                        label="Completed" 
+                                        color="success" 
+                                        size="small" 
+                                        variant="outlined"
+                                        sx={{ height: 20, '& .MuiChip-label': { px: 1, py: 0.25, fontSize: '0.7rem' } }}
+                                      />
+                                    )}
+                                    
+                                    {isCurrent && (
+                                      <Chip 
+                                        label="Current" 
+                                        color="primary" 
+                                        size="small" 
+                                        variant="filled"
+                                        sx={{ height: 20, '& .MuiChip-label': { px: 1, py: 0.25, fontSize: '0.7rem' } }}
+                                      />
+                                    )}
+                                    
+                                    {!isCompleted && !isCurrent && (
+                                      <Chip 
+                                        label="Pending" 
+                                        size="small" 
+                                        variant="outlined"
+                                        sx={{ 
+                                          height: 20, 
+                                          '& .MuiChip-label': { px: 1, py: 0.25, fontSize: '0.7rem' },
+                                          color: 'grey.600',
+                                          borderColor: 'grey.400'
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
+                                  
+                                  {completionData && (
+                                    <Box sx={{ mt: 0.5 }}>
+                                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <EventIcon sx={{ fontSize: 14 }} />
+                                        Completed on {formatDate(completionData.completed_at)}
+                                      </Typography>
+                                      {completionData.notes && (
+                                        <Typography variant="caption" sx={{ 
+                                          display: 'block',
+                                          mt: 0.5,
+                                          p: 1, 
+                                          bgcolor: 'grey.50',
+                                          borderRadius: 1,
+                                          fontStyle: 'italic'
+                                        }}>
+                                          {completionData.notes}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  )}
+                                  
+                                  {isCurrent && (
+                                    <Button
+                                      variant="outlined"
+                                      size="small"
+                                      color="primary"
+                                      onClick={() => handleStatusUpdate(status.id)}
+                                      sx={{ mt: 1, textTransform: 'none', px: 1.5, py: 0.25 }}
+                                    >
+                                      Complete & Continue
+                                    </Button>
+                                  )}
+                                </Box>
+                              </Box>
+                            );
+                          }
+                          
+                          // Render status completion events
+                          if (item.type === 'status_completion') {
+                            const status = item.status;
+                            return (
+                              <Box 
+                                key={`completion-${index}`}
+                                sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'flex-start', 
+                                  py: 1,
+                                  mb: 0.5,
+                                  ml: 2,
+                                  borderLeft: '2px solid',
+                                  borderLeftColor: 'success.main',
+                                  pl: 2,
+                                  bgcolor: 'success.50',
+                                  borderRadius: '0 4px 4px 0',
+                                }}
+                              >
+                                <CheckIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'success.dark' }}>
+                                    {status.name} - Completed
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {formatDate(item.timestamp)}
+                                  </Typography>
+                                  {item.notes && (
+                                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontStyle: 'italic' }}>
+                                      {item.notes}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </Box>
+                            );
+                          }
+                          
+                          // Render other events
+                          if (item.type === 'event') {
+                            const event = item.event;
+                            const eventTypeInfo = getEventTypeInfo(event.event_type);
+                            
+                            // Show workflow_status_change events but format them better
+                            if (event.event_type === 'workflow_status_change') {
+                              // Find the status info from the stage statuses
+                              let statusName = event.new_stage;
+                              let validStatus = false;
+                              
+                              // Look through all stages to find the status
+                              for (const stg of workflowStages) {
+                                const status = stg.statuses?.find(s => s.id === event.new_stage);
+                                if (status) {
+                                  statusName = status.name;
+                                  validStatus = true;
+                                  break;
+                                }
+                              }
+                              
+                              // Skip invalid statuses (ones not in this workflow)
+                              if (!validStatus) {
+                                return null;
+                              }
+                              
+                              return (
+                                <Box 
+                                  key={`event-${event.event_id || index}`}
+                                  sx={{ 
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    py: 1.5,
+                                    px: 2,
+                                    mb: 1.5,
+                                    bgcolor: 'success.50',
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'success.200',
+                                    position: 'relative',
+                                    '&::before': {
+                                      content: '""',
+                                      position: 'absolute',
+                                      left: -1,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: 4,
+                                      bgcolor: 'success.main',
+                                      borderRadius: '4px 0 0 4px'
+                                    }
+                                  }}
+                                >
+                                  <Avatar
                                     sx={{ 
                                       width: 32, 
                                       height: 32, 
                                       mr: 1.5,
-                                      bgcolor: `${eventTypeInfo.color}.main`,
+                                      bgcolor: 'success.main',
                                       fontSize: '0.875rem'
                                     }}
                                   >
-                                    {eventTypeInfo.icon}
+                                    <CheckIcon sx={{ fontSize: 18 }} />
                                   </Avatar>
-                                  
                                   <Box sx={{ flex: 1 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.dark' }}>
+                                      {statusName}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Completed on {formatDate(event.created_at)}
+                                    </Typography>
+                                    {event.description && !event.description.includes('Workflow status changed') && !event.description.includes('Customer requested') && (
+                                      <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
                                         {event.description}
                                       </Typography>
-                                      
-                                      <Chip 
-                                        label={eventTypeInfo.label}
-                                        color={eventTypeInfo.color}
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{ height: 20, '& .MuiChip-label': { px: 1, py: 0.25, fontSize: '0.7rem' } }}
-                                      />
-                                    </Box>
-                                    
-                                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5, fontSize: '0.75rem' }}>
-                                      <PersonIcon fontSize="inherit" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                                      <Typography variant="caption" color="text.secondary" component="span">
-                                        {getUserDisplay(event)}
-                                      </Typography>
-                                      
-                                      <Box sx={{ mx: 0.5, color: 'text.disabled' }}>•</Box>
-                                      
-                                      <EventIcon fontSize="inherit" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                                      <Typography variant="caption" color="text.secondary" component="span">
-                                        {formatDate(event.created_at)}
-                                      </Typography>
-                                    </Box>
-                                    
-                                    {event.event_type === 'stage_change' && event.previous_stage && event.new_stage && (
-                                      <Box sx={{ 
-                                        mt: 1, 
-                                        p: 1, 
-                                        bgcolor: 'background.default',
-                                        borderRadius: 1,
-                                        fontSize: '0.75rem'
-                                      }}>
-                                        <Typography variant="caption">
-                                          Stage changed from <b>{event.previous_stage}</b> to <b>{event.new_stage}</b>
-                                        </Typography>
-                                      </Box>
                                     )}
-                                    
-                                    {event.metadata && Object.keys(event.metadata).length > 0 && (
-                                      <Box sx={{ 
-                                        mt: 1, 
-                                        p: 1, 
-                                        bgcolor: 'background.default',
-                                        borderRadius: 1,
-                                        fontSize: '0.75rem'
-                                      }}>
-                                        {Object.entries(event.metadata).map(([key, value]) => (
-                                          <Typography key={key} variant="caption" display="block">
-                                            <strong>{key.replace(/_/g, ' ')}:</strong> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                          </Typography>
-                                        ))}
-                                      </Box>
-                                    )}
+                                  </Box>
+                                </Box>
+                              );
+                            }
+                            
+                            // Skip stage transition events
+                            if (event.event_type === 'stage_transition') {
+                              return null;
+                            }
+                            
+                            return (
+                              <Box 
+                                key={`event-${event.event_id || index}`}
+                                sx={{ 
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  py: 1,
+                                  px: 1.5,
+                                  mb: 1,
+                                  ml: 5,
+                                  bgcolor: 'grey.50',
+                                  borderRadius: 1,
+                                  borderLeft: '3px solid',
+                                  borderLeftColor: eventTypeInfo.color === 'default' ? 'grey.300' : `${eventTypeInfo.color}.light`,
+                                  '&:hover': {
+                                    bgcolor: 'grey.100'
+                                  }
+                                }}
+                              >
+                                <Avatar 
+                                  sx={{ 
+                                    width: 28, 
+                                    height: 28, 
+                                    mr: 1.5,
+                                    bgcolor: eventTypeInfo.color === 'default' ? 'grey.300' : `${eventTypeInfo.color}.light`,
+                                    color: eventTypeInfo.color === 'default' ? 'grey.700' : `${eventTypeInfo.color}.dark`,
+                                    fontSize: '0.75rem'
+                                  }}
+                                >
+                                  {React.cloneElement(eventTypeInfo.icon, { sx: { fontSize: 18 } })}
+                                </Avatar>
+                                
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" sx={{ mb: 0.25 }}>
+                                    {event.description}
+                                  </Typography>
+                                  
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Chip 
+                                      label={eventTypeInfo.label}
+                                      size="small"
+                                      sx={{ 
+                                        height: 18, 
+                                        '& .MuiChip-label': { px: 0.75, fontSize: '0.65rem' },
+                                        bgcolor: eventTypeInfo.color === 'default' ? 'grey.200' : `${eventTypeInfo.color}.100`,
+                                        color: eventTypeInfo.color === 'default' ? 'grey.700' : `${eventTypeInfo.color}.dark`
+                                      }}
+                                    />
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                      {getUserDisplay(event)} • {formatDate(event.created_at)}
+                                    </Typography>
                                   </Box>
                                 </Box>
                               </Box>
                             );
-                          })}
+                          }
+                          
+                          return null;
+                        });
+                      })()}
+                      
+                      {/* Action buttons for active stage */}
+                      {isStageActive && !isFullyCompleted && (
+                        <Box sx={{ 
+                          mt: 3, 
+                          pt: 2, 
+                          borderTop: '1px solid',
+                          borderColor: 'divider',
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: 1
+                        }}>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            size="small"
+                            startIcon={<ArrowForwardIcon />}
+                            onClick={() => {
+                              const nextStatuses = getNextAvailableStatuses();
+                              if (nextStatuses.length > 0) {
+                                handleStatusUpdate(nextStatuses[0].id);
+                              }
+                            }}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Complete Current Step
+                          </Button>
+                          
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddCommentIcon />}
+                            onClick={() => setNoteDialogOpen(true)}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Add Note
+                          </Button>
+                          
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<TaskIcon />}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Assign Task
+                          </Button>
+                          
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AttachFileIcon />}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Upload Document
+                          </Button>
+                          
+                          {stage.id === 'PROCUREMENT' && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<CreditCardIcon />}
+                              sx={{ textTransform: 'none' }}
+                            >
+                              Record Payment
+                            </Button>
+                          )}
+                          
+                          {stage.id === 'FULFILLMENT' && (
+                            <>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<ShippingIcon />}
+                                sx={{ textTransform: 'none' }}
+                              >
+                                Schedule Delivery
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<BuildIcon />}
+                                sx={{ textTransform: 'none' }}
+                              >
+                                Schedule Installation
+                              </Button>
+                            </>
+                          )}
                         </Box>
                       )}
                     </Box>
@@ -1100,6 +1407,7 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
               );
             })}
           </Stepper>
+          
         </Box>
       </Paper>
       

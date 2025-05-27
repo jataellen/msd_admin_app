@@ -41,7 +41,7 @@ const OrderHeader = ({ order, isMobile, onEdit, onAddTask }) => {
           mb: 3, 
           borderRadius: 2,
           background: theme.palette.background.paper,
-          borderLeft: `5px solid ${theme.palette[getStageColor(order.current_stage)].main}`,
+          borderLeft: `5px solid ${theme.palette[getStageColor(order.current_stage)]?.main || theme.palette.primary.main}`,
           boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
         }}
       >

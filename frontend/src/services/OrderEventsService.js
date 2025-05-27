@@ -126,6 +126,47 @@ const orderEventsService = {
       throw error;
     }
   },
+
+  // Record a task event
+  recordTaskEvent: async (orderId, taskId, taskTitle, action, options = {}) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/order-events/${orderId}/task`,
+        {
+          task_id: taskId,
+          task_title: taskTitle,
+          action: action,
+          assigned_to: options.assignedTo,
+          previous_status: options.previousStatus,
+          new_status: options.newStatus
+        },
+        { withCredentials: true }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error recording task event:', error);
+      throw error;
+    }
+  },
+
+  // Record a workflow status change
+  recordWorkflowStatusChange: async (orderId, previousStatus, newStatus, notes = null) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/order-events/${orderId}/workflow-status`,
+        {
+          previous_status: previousStatus,
+          new_status: newStatus,
+          notes: notes
+        },
+        { withCredentials: true }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error recording workflow status change:', error);
+      throw error;
+    }
+  },
   
   // Format an event for display
   formatEventForDisplay: (event) => {

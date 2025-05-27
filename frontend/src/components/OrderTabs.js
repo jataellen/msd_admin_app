@@ -44,8 +44,7 @@ import {
 
 // Import components
 import TabPanel from './TabPanel';
-import OrderTracking from '../components/OrderTracking';
-import OrderHistoryTimeline from '../components/OrderHistoryTimeline';
+import CombinedOrderTracking from './CombinedOrderTracking';
 
 // Import formatters
 import { formatDate, formatCurrency, getStatusColor, getPriorityColor } from '../utils/formatters';
@@ -313,12 +312,12 @@ const OrderTabs = ({
       
       {/* Tracking Tab */}
       <TabPanel value={tabValue} index={1}>
-        <OrderTracking orderId={parseInt(orderId)} orderData={order} />
+        <CombinedOrderTracking orderId={orderId} orderData={order} />
       </TabPanel>
       
       {/* History Tab */}
       <TabPanel value={tabValue} index={2}>
-        <OrderHistoryTimeline orderId={parseInt(orderId)} />
+        <CombinedOrderTracking orderId={orderId} orderData={order} />
       </TabPanel>
       
       {/* Quotes Tab */}

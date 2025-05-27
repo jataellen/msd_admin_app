@@ -16,7 +16,7 @@ router = APIRouter(prefix="/order-events", tags=["order-events"])
 
 # Request/Response models
 class OrderEventBase(BaseModel):
-    order_id: int
+    order_id: str
     event_type: str
     description: str
     previous_stage: Optional[str] = None
@@ -29,7 +29,7 @@ class OrderEventCreate(OrderEventBase):
 
 
 class OrderEvent(OrderEventBase):
-    event_id: int
+    event_id: str
     created_by: str  # UUID of the user
     created_at: datetime
 
@@ -89,7 +89,7 @@ async def create_order_event(
 # Get all events for an order
 @router.get("/{order_id}", response_model=List[OrderEvent])
 async def get_order_events(
-    order_id: int,
+    order_id: str,
     limit: Optional[int] = Query(50, description="Limit the number of events returned"),
     skip: Optional[int] = Query(0, description="Skip the first N events"),
     event_type: Optional[str] = Query(None, description="Filter by event type"),
@@ -156,7 +156,7 @@ async def get_order_events(
 # Helper function to record a stage change
 @router.post("/{order_id}/stage-change")
 async def record_stage_change(
-    order_id: int,
+    order_id: str,
     previous_stage: str = Body(...),
     new_stage: str = Body(...),
     notes: Optional[str] = Body(None),
@@ -207,7 +207,7 @@ async def record_stage_change(
 # Add a note event
 @router.post("/{order_id}/note")
 async def add_order_note(
-    order_id: int,
+    order_id: str,
     note: str = Body(..., embed=True),
     current_user: dict = Depends(get_current_user),
 ):
@@ -246,7 +246,7 @@ async def add_order_note(
 # Record document event (upload, signature, etc.)
 @router.post("/{order_id}/document")
 async def record_document_event(
-    order_id: int,
+    order_id: str,
     document_type: str = Body(...),
     document_name: str = Body(...),
     action: str = Body(...),  # e.g., "uploaded", "signed", "sent"
@@ -309,7 +309,7 @@ async def record_document_event(
 # Record payment event
 @router.post("/{order_id}/payment")
 async def record_payment_event(
-    order_id: int,
+    order_id: str,
     amount: float = Body(...),
     payment_type: str = Body(...),  # e.g., "deposit", "final", "partial"
     payment_method: str = Body(...),  # e.g., "credit_card", "check", "bank_transfer"
@@ -366,4 +366,136 @@ async def record_payment_event(
         logger.error(f"Error recording payment event: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Error recording payment event: {str(e)}"
+        )
+
+
+# Record task event
+@router.post("/{order_id}/task")
+async def record_task_event(
+    order_id: str,
+    task_id: str = Body(...),
+    task_title: str = Body(...),
+    action: str = Body(...),  # e.g., "created", "assigned", "completed", "updated"
+    assigned_to: Optional[str] = Body(None),
+    previous_status: Optional[str] = Body(None),
+    new_status: Optional[str] = Body(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """Record a task-related event"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Get user information
+        user_id = current_user.get("id")
+
+        # Create description based on action
+        if action == "created":
+            description = f"Task '{task_title}' was created"
+        elif action == "assigned":
+            description = f"Task '{task_title}' was assigned to {assigned_to}"
+        elif action == "completed":
+            description = f"Task '{task_title}' was completed"
+        elif action == "status_changed":
+            description = f"Task '{task_title}' status changed from {previous_status} to {new_status}"
+        else:
+            description = f"Task '{task_title}' was {action}"
+
+        # Prepare metadata
+        metadata = {
+            "task_id": task_id,
+            "task_title": task_title,
+            "action": action,
+        }
+
+        if assigned_to:
+            metadata["assigned_to"] = assigned_to
+        if previous_status:
+            metadata["previous_status"] = previous_status
+        if new_status:
+            metadata["new_status"] = new_status
+
+        # Prepare event data
+        event_data = {
+            "order_id": order_id,
+            "event_type": "task",
+            "description": description,
+            "metadata": metadata,
+            "created_by": user_id,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        # Insert event into database
+        response = supabase.table("order_events").insert(event_data).execute()
+
+        if not response.data:
+            raise HTTPException(
+                status_code=500, detail="Failed to record task event"
+            )
+
+        return {
+            "message": "Task event recorded successfully",
+            "event": response.data[0],
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error recording task event: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error recording task event: {str(e)}"
+        )
+
+
+# Record workflow status change event
+@router.post("/{order_id}/workflow-status")
+async def record_workflow_status_change(
+    order_id: str,
+    previous_status: str = Body(...),
+    new_status: str = Body(...),
+    notes: Optional[str] = Body(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """Record a workflow status change event"""
+    try:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Get user information
+        user_id = current_user.get("id")
+
+        # Create description from notes or use default
+        if notes:
+            description = f"Workflow status changed from {previous_status} to {new_status}: {notes}"
+        else:
+            description = f"Workflow status changed from {previous_status} to {new_status}"
+
+        # Prepare event data
+        event_data = {
+            "order_id": order_id,
+            "event_type": "workflow_status_change",
+            "description": description,
+            "previous_stage": previous_status,
+            "new_stage": new_status,
+            "created_by": user_id,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        # Insert event into database
+        response = supabase.table("order_events").insert(event_data).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=500, detail="Failed to record workflow status change")
+
+        return {
+            "message": "Workflow status change recorded successfully",
+            "event": response.data[0],
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error recording workflow status change: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error recording workflow status change: {str(e)}"
         )

@@ -1,0 +1,247 @@
+Business Process Documentation: Materials and Installation Workflow
+Order Types Overview
+Materials Only Process
+Customer requests quote for materials
+Quote is provided and followed up
+Upon acceptance, PO is generated for materials directly from quote
+System must generate an invoice
+PO tracking:
+Confirm ETA
+Verify PO read/accepted by supplier
+Delivery/pickup options:
+Communicate pickup location to customer if applicable
+Schedule delivery if needed
+Materials and Installation (M&I) Process
+Customer requests materials and installation services
+Site visit scheduled for measurements
+Quote created based on measurements
+Upon acceptance:
+Work Order Agreement is generated (summary, not line item)
+Installation crew is scheduled
+POs for materials are created
+Detailed Process Flows
+Customer Onboarding
+Collect customer information
+Determine if site visit is necessary:
+For windows and doors: initial visit provides rough estimate
+After Work Order confirmation: second detailed measurement visit required
+Schedule site visit if needed
+Quote Generation
+Create quote based on measurements and requirements
+Enter requirements into QuickBooks
+Price calculation:
+Materials pricing from suppliers
+Labor pricing (determined by management)
+For M jobs:
+Eta based on Material lead times
+For M&I jobs: Include timeline estimates based on:
+Current schedule availability
+Materials lead times
+Generate quote (for m&I jobs: summary format)
+Quote Presentation and Acceptance
+Send quote to customer
+Customer acceptance process:
+For M jobs: Formal signing with Docusign
+For M&I jobs: No formal signing at quote stage, Verbal or email confirmation
+If deposit required, 
+send to customer
+Customer pays deposit
+For materials only: Proceed to PO generation
+For M&I: Proceed to Work Order Agreement
+Work Order Agreement (for M&I jobs)
+Generate Work Order Agreement after quote acceptance
+Include:
+Reference to quote
+Scope of work
+Payment terms (including deposit requirements)
+Estimated completion timeline
+Send for customer signature (DocuSign)
+Process deposit if required:
+CC payment (note: 2.2% fee for amounts over $5,000)
+-Email payment option-
+Upon signature, proceed to materials procurement and scheduling
+Materials Procurement
+For M&I: Generate POs to suppliers once Work Order is signed
+Track confirmation and ETA from suppliers
+Set up reminders:
+E.g. 8 weeks out, reminder at 6 weeks out
+Materials due date notification
+Flag special deliveries:
+Heavy weight items
+High volume orders (e.g., "169 windows in one shipment")
+Monitor for materials arrival
+For windows/doors and others: Send installer for second detailed measurement before finalizing order
+Scheduling
+-*Book contractors (tentative scheduling during quote, take a week to decide, ok now we’re booked. )*-, right now we’re booking into July. when they sign, we’re booking into August
+Confirm contractor booking after Work Order signing
+Coordinate delivery timing based on:
+Job schedule
+Material ETAs
+Create calendar entries with:
+Customer address
+Delivery information (big truck/little truck)
+Job duration (e.g., Monday through Wednesday)
+Trigger coordination of delivery:
+Enter delivery information into delivery calendar
+Flag delivery level (heavy weight/high volume)
+Materials Management
+Track incoming materials
+Receive 2-day advance notice for deliveries
+Receive day-of delivery confirmation
+Confirm all materials received before installation date
+If materials delayed:
+Assess impact on schedule
+Make schedule adjustments if needed (e.g., "instead of 5 10s, work 4 12s")
+Determine material transport to job site:
+Company delivery
+Contractor pickup
+Job Completion
+Track work progress according to schedule
+System alert at scheduled end time (e.g., Wednesday 4pm) - "Has this job been completed to schedule?"
+Shaun Receives completion confirmation:
+Contractor calls/texts upon completion
+Generate customer invoice
+Management review/sign-off on invoice
+Send invoice to customer
+Process payment
+Post-Job Follow-up
+Once payment received, prompt task owner to send review request
+Task owner clicks yes/no to send customer email/text with Google review link
+Send review request if approved
+Mark order as closed
+Returns Processing
+In PO sheet, track:
+Original supplier costs
+Customer invoice amounts
+Profit calculations
+For returns:
+Assign returned items to the original PO
+Update profit calculations accordingly
+Ensure all returns are included in final tally
+Aluminum flat stock, that PO we would be the supplier, say it was just materials, send to kaycan, pull 2 rows flat stock from our own inventory to give it to them
+Put in the PO sheet and calculate the cost, one PO line two separate sources for cost
+
+
+Payment Terms
+Standard: Payment on receipt
+Custom terms can be established (requires override)
+Credit card payments:
+2.2% fee for amounts over $5,000
+Fee must be manually added
+Special Considerations
+Site Visits
+Initial site visits for rough estimates
+Secondary detailed measurements for exact ordering (windows/doors)
+Customer Order Types
+Regular orders follow standard process
+Prepay orders:
+Items in stock → payment due when available
+Shipment scheduled per customer specification,pair prior to po based on deposit rules
+At some point where in the process, should there be a prompt to follow up with the customer
+Customer service, schedule followup
+Schedule 
+Click button for best way to contact supplier/customer
+Invoice Management
+Option to edit invoices as needed
+Review process before sending to customer
+Material Delivery Coordination
+2-day advance notice
+Day-of delivery confirmation
+Special handling for high volume or heavy items
+
+Reset moms password
+
+
+
+
+100% payment for windows on orders
+10k now 60k later, skews quickbooks
+Look at the bank balance how much is money that we havent earned yet
+
+Deposits handled as liability, unearned revenue
+
+Another processing system rather than quickbooks
+200$ a month 
+Handle inventory, purchase orders, assigned permissions to each user, create custom profile, ≥
+
+
+Lauren
+> Payroll
+> all sales
+> items
+> enter new items/edit items
+> enters invoices and credits from suppliers
+> eners invoices to customers
+Refunds customers
+Pays online in quickbooks, pays suppliers
+> processing fees
+
+
+Costs involved in site visits, overall view of project cost
+-mileage
+- luc’s time
+Detailed measurements, 3 hours chandler and nathan, 
+
+Order has
+
+Human enters initial information
+Luc on thursday one of our best customers, can i get window quotes for the following, and all window specs
+Shaun CC’d on all those emails
+Info line from website, go to s l l , can i get a price on bifold door
+
+Speech to tes
+Xt
+ This customer came in looking for whatever, they said X
+Using ipad speech to text
+
+Task items not associated with orders
+Receipt for tubes of caulking or taking from our supply of caulking
+
+Database statuses:
+Database Workflow Status Values
+Materials Only Workflow
+NEW_LEAD - Initial customer inquiry received
+QUOTE_REQUESTED - Customer has requested a quote for materials
+QUOTE_PREPARED - Quote has been created based on requirements
+QUOTE_SENT - Quote has been sent to customer
+QUOTE_ACCEPTED - Customer has formally accepted the quote
+PO_CREATED - Purchase Order generated for materials
+PO_SENT - Purchase Order sent to supplier
+SUPPLIER_CONFIRMED - Supplier has confirmed the order
+MATERIALS_ORDERED - All materials have been ordered
+PARTIAL_RECEIVED - Some materials have been received
+MATERIALS_RECEIVED - All materials have been received
+CUSTOMER_NOTIFIED - Customer notified of materials availability
+READY_FOR_PICKUP - Materials ready for customer pickup
+DELIVERY_SCHEDULED - Delivery to customer has been scheduled
+DELIVERED - Materials delivered to customer
+INVOICE_SENT - Invoice sent to customer
+PAYMENT_RECEIVED - Payment received from customer
+COMPLETED - Order fulfilled and closed
+FOLLOW_UP_SENT - Post-order review request sent
+Materials & Installation Workflow
+NEW_LEAD - Initial customer inquiry received
+SITE_VISIT_SCHEDULED - Initial site visit scheduled for measurements
+SITE_VISIT_COMPLETED - Initial measurements and assessment completed
+QUOTE_PREPARED - Quote created based on site visit
+QUOTE_SENT - Quote sent to customer
+QUOTE_ACCEPTED - Customer has accepted the quote
+WORK_ORDER_CREATED - Work Order Agreement generated
+WORK_ORDER_SENT - Work Order sent for customer signature
+WORK_ORDER_SIGNED - Customer has signed the Work Order
+DEPOSIT_REQUESTED - Deposit requested from customer
+DEPOSIT_RECEIVED - Deposit payment received
+DETAILED_MEASUREMENT - Second detailed measurement completed
+PO_CREATED - Purchase Orders created for materials
+MATERIALS_ORDERED - All materials have been ordered
+INSTALLATION_SCHEDULED - Installation has been scheduled
+MATERIALS_RECEIVED - All materials have been received
+INSTALLATION_READY - Materials and crew ready for installation
+INSTALLATION_IN_PROGRESS - Installation work has begun
+INSTALLATION_COMPLETED - Installation work is completed
+FINAL_INSPECTION - Final inspection of completed work
+INVOICE_SENT - Final invoice sent to customer
+PAYMENT_RECEIVED - Final payment received
+REVIEW_REQUESTED - Post-job review request sent
+COMPLETED - Order fulfilled, paid and closed
+

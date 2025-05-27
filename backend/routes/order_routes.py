@@ -15,12 +15,59 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
+def map_workflow_status_to_stage(workflow_status):
+    """Map specific workflow status to broader stage for filtering"""
+    if not workflow_status:
+        return "LEAD_ACQUISITION"
+    
+    status = workflow_status.upper()
+    
+    # LEAD_ACQUISITION stage
+    if status in ['NEW_LEAD']:
+        return 'LEAD_ACQUISITION'
+    
+    # QUOTATION stage
+    elif status in ['QUOTE_REQUESTED', 'SITE_VISIT_SCHEDULED', 'SITE_VISIT_COMPLETED',
+                   'DETAILED_MEASUREMENT_SCHEDULED', 'DETAILED_MEASUREMENT_COMPLETED',
+                   'QUOTE_PREPARED', 'QUOTE_SENT', 'QUOTE_APPROVED']:
+        return 'QUOTATION'
+    
+    # PROCUREMENT stage
+    elif status in ['WORK_ORDER_SENT', 'WORK_ORDER_SIGNED', 'MATERIALS_ORDERED',
+                   'MATERIALS_RECEIVED', 'MATERIALS_BACKORDERED']:
+        return 'PROCUREMENT'
+    
+    # FULFILLMENT stage
+    elif status in ['DELIVERY_SCHEDULED', 'DELIVERY_COMPLETED', 'INSTALLATION_SCHEDULED',
+                   'INSTALLATION_IN_PROGRESS', 'INSTALLATION_COMPLETED', 'DELIVERY_DELAYED',
+                   'INSTALLATION_DELAYED']:
+        return 'FULFILLMENT'
+    
+    # FINALIZATION stage
+    elif status in ['FINAL_INSPECTION', 'PAYMENT_RECEIVED', 'ORDER_COMPLETED',
+                   'FOLLOW_UP_SCHEDULED']:
+        return 'FINALIZATION'
+    
+    # Handle special cases
+    elif status in ['ORDER_CANCELLED', 'QUOTE_REJECTED']:
+        return 'CANCELLED'
+    
+    elif status in ['CUSTOMER_COMMUNICATION_NEEDED', 'AWAITING_CUSTOMER_APPROVAL',
+                   'CHANGE_ORDER_REQUESTED', 'PAYMENT_PENDING']:
+        return 'ON_HOLD'
+    
+    else:
+        return 'LEAD_ACQUISITION'  # Default fallback
+
+
 WORKFLOW_STAGES = [
     "LEAD_ACQUISITION",
-    "QUOTATION",
+    "QUOTATION", 
     "PROCUREMENT",
     "FULFILLMENT",
     "FINALIZATION",
+    "ON_HOLD",
+    "CANCELLED",
 ]
 
 
@@ -29,12 +76,12 @@ class OrderBase(BaseModel):
     order_name: str
     description: Optional[str] = None
     location: Optional[str] = None
-    customer_id: int
+    customer_id: str
     priority: Optional[str] = None
     start_date: Optional[str] = None
     target_completion_date: Optional[str] = None
     budget: Optional[float] = None
-    order_manager_id: Optional[int] = None
+    order_manager_id: Optional[str] = None
     contract_number: Optional[str] = None
     notes: Optional[str] = None
     type: Optional[str] = None
@@ -50,13 +97,13 @@ class OrderUpdate(BaseModel):
     order_name: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None
-    customer_id: Optional[int] = None
+    customer_id: Optional[str] = None
     priority: Optional[str] = None
     start_date: Optional[str] = None
     target_completion_date: Optional[str] = None
     actual_completion_date: Optional[str] = None
     budget: Optional[float] = None
-    order_manager_id: Optional[int] = None
+    order_manager_id: Optional[str] = None
     contract_signed_date: Optional[str] = None
     progress_percentage: Optional[int] = None
     contract_number: Optional[str] = None
@@ -127,7 +174,24 @@ async def create_order(
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to create order")
 
-        return response.data[0]
+        created_order = response.data[0]
+        
+        # Record the order creation event
+        try:
+            event_data = {
+                "order_id": created_order["order_id"],
+                "event_type": "order_creation",
+                "description": f"Order '{order.order_name}' was created",
+                "new_stage": order.current_stage,
+                "created_by": current_user.get("id"),
+                "created_at": now,
+            }
+            supabase.table("order_events").insert(event_data).execute()
+        except Exception as event_error:
+            # Log but don't fail order creation if event recording fails
+            logger.warning(f"Failed to record order creation event: {str(event_error)}")
+
+        return created_order
     except HTTPException as he:
         # Re-raise HTTP exceptions
         raise he
@@ -140,7 +204,7 @@ async def create_order(
 async def get_orders(
     current_stage: Optional[str] = None,
     type: Optional[str] = None,
-    customer_id: Optional[int] = None,
+    customer_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
     """Get all orders with optional filtering"""
@@ -148,12 +212,10 @@ async def get_orders(
         if not current_user:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        # Start with base query
+        # Start with base query - no stage filtering here
         query = supabase.table("orders").select("*")
-
-        # Apply filters
-        if current_stage:
-            query = query.eq("current_stage", current_stage)
+        
+        # Apply non-stage filters
         if type:
             query = query.eq("type", type)
         if customer_id:
@@ -165,7 +227,18 @@ async def get_orders(
         if not response.data:
             return {"orders": []}
 
-        return {"orders": response.data}
+        # Add mapped stage to each order and apply stage filtering
+        orders_with_stages = []
+        for order in response.data:
+            order_with_stage = dict(order)
+            mapped_stage = map_workflow_status_to_stage(order.get('workflow_status'))
+            order_with_stage['current_stage'] = mapped_stage
+            
+            # Apply stage filter after mapping
+            if not current_stage or mapped_stage == current_stage:
+                orders_with_stages.append(order_with_stage)
+
+        return {"orders": orders_with_stages}
     except Exception as e:
         logger.error(f"Error fetching orders: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching orders: {str(e)}")
@@ -173,7 +246,7 @@ async def get_orders(
 
 @router.get("/order-stages")
 async def get_order_stages():
-    """Get all valid order stages"""
+    """Get all valid order stages for filtering"""
     return {"stages": WORKFLOW_STAGES}
 
 
@@ -211,7 +284,7 @@ async def get_order_types():
 
 
 @router.get("/{order_id}")
-async def get_order(order_id: int, current_user: dict = Depends(get_current_user)):
+async def get_order(order_id: str, current_user: dict = Depends(get_current_user)):
     """Get a specific order by ID"""
     try:
         if not current_user:
@@ -259,7 +332,7 @@ async def get_order(order_id: int, current_user: dict = Depends(get_current_user
 
         # Get related invoices
         invoices_response = (
-            supabase.table("invoices_reference")
+            supabase.table("invoices")
             .select("*")
             .eq("order_id", order_id)
             .execute()
@@ -283,7 +356,7 @@ async def get_order(order_id: int, current_user: dict = Depends(get_current_user
 
 @router.put("/{order_id}")
 async def update_order(
-    order_id: int,
+    order_id: str,
     order_update: OrderUpdate,
     current_user: dict = Depends(get_current_user),
 ):
@@ -351,7 +424,7 @@ async def update_order(
 
 @router.post("/{order_id}/update-stage")
 async def update_order_stage(
-    order_id: int,
+    order_id: str,
     stage_update: OrderStageUpdate,
     current_user: dict = Depends(get_current_user),
 ):
@@ -439,6 +512,44 @@ async def update_order_stage(
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to update order stage")
 
+        # Record the stage completion event
+        try:
+            if stage_update.notes:
+                description = f"Stage '{stage_update.stage}' completed: {stage_update.notes}"
+            else:
+                description = f"Stage '{stage_update.stage}' completed"
+                
+            event_data = {
+                "order_id": order_id,
+                "event_type": "stage_completion",
+                "description": description,
+                "previous_stage": current_order.get("current_stage"),
+                "new_stage": stage_update.stage,
+                "created_by": current_user.get("id"),
+                "created_at": now,
+            }
+            supabase.table("order_events").insert(event_data).execute()
+        except Exception as event_error:
+            # Log but don't fail if event recording fails
+            logger.warning(f"Failed to record stage completion event: {str(event_error)}")
+
+        # If moved to next stage, record stage transition event
+        if next_stage:
+            try:
+                event_data = {
+                    "order_id": order_id,
+                    "event_type": "stage_transition",
+                    "description": f"Moved to stage '{next_stage}' from '{stage_update.stage}'",
+                    "previous_stage": stage_update.stage,
+                    "new_stage": next_stage,
+                    "created_by": current_user.get("id"),
+                    "created_at": now,
+                }
+                supabase.table("order_events").insert(event_data).execute()
+            except Exception as event_error:
+                # Log but don't fail if event recording fails
+                logger.warning(f"Failed to record stage transition event: {str(event_error)}")
+
         # Create activity record if you have an activities table
         try:
             activity_data = {
@@ -488,7 +599,7 @@ async def update_order_stage(
 
 @router.get("/{order_id}/activities")
 async def get_order_activities(
-    order_id: int, current_user: dict = Depends(get_current_user)
+    order_id: str, current_user: dict = Depends(get_current_user)
 ):
     """Get all activities for an order"""
     try:
@@ -530,7 +641,7 @@ async def get_order_activities(
 
 
 @router.delete("/{order_id}")
-async def delete_order(order_id: int, current_user: dict = Depends(get_current_user)):
+async def delete_order(order_id: str, current_user: dict = Depends(get_current_user)):
     """Delete an order (soft delete by changing to Cancelled stage)"""
     try:
         if not current_user:
@@ -581,7 +692,7 @@ async def get_workflow_stages_endpoint():
 # Get order history events
 @router.get("/{order_id}/history")
 async def get_order_history(
-    order_id: int,
+    order_id: str,
     limit: Optional[int] = Query(50, description="Limit the number of events returned"),
     skip: Optional[int] = Query(0, description="Skip the first N events"),
     event_type: Optional[str] = Query(None, description="Filter by event type"),
@@ -682,7 +793,7 @@ async def get_order_history(
 # Add a note to an order
 @router.post("/{order_id}/notes")
 async def add_order_note(
-    order_id: int,
+    order_id: str,
     note: dict,
     current_user: dict = Depends(get_current_user),
 ):
@@ -725,7 +836,7 @@ async def add_order_note(
 
 @router.post("/{order_id}/update-status")
 async def update_order_status(
-    order_id: int,
+    order_id: str,
     new_status: dict,
     current_user: dict = Depends(get_current_user),
 ):
@@ -793,6 +904,28 @@ async def update_order_status(
 
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to update order status")
+
+        # Record the workflow status change event
+        try:
+            if notes:
+                description = f"Workflow status changed from {current_status or 'NOT_STARTED'} to {status_value}: {notes}"
+            else:
+                description = f"Workflow status changed from {current_status or 'NOT_STARTED'} to {status_value}"
+
+            event_data = {
+                "order_id": order_id,
+                "event_type": "workflow_status_change",
+                "description": description,
+                "previous_stage": current_status or "NOT_STARTED",
+                "new_stage": status_value,
+                "created_by": current_user.get("id"),
+                "created_at": now,
+            }
+
+            supabase.table("order_events").insert(event_data).execute()
+        except Exception as event_error:
+            # Log but don't fail the status update if event recording fails
+            logger.warning(f"Failed to record status change event: {str(event_error)}")
 
         return response.data[0]
 

@@ -142,10 +142,10 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
     if (searchTerm.trim()) {
       const lowercasedSearch = searchTerm.toLowerCase();
       filtered = filtered.filter(order => 
-        (order.order_name && order.order_name.toLowerCase().includes(lowercasedSearch)) ||
+        (order.project_address && order.project_address.toLowerCase().includes(lowercasedSearch)) ||
         (order.description && order.description.toLowerCase().includes(lowercasedSearch)) ||
-        (order.location && order.location.toLowerCase().includes(lowercasedSearch)) ||
-        (order.contract_number && order.contract_number.toLowerCase().includes(lowercasedSearch))
+        (order.project_city && order.project_city.toLowerCase().includes(lowercasedSearch)) ||
+        (order.work_order_number && order.work_order_number.toLowerCase().includes(lowercasedSearch))
       );
     }
     
@@ -476,10 +476,10 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell>Order Name</TableCell>
+                  <TableCell>Project Address</TableCell>
                   <TableCell>Priority</TableCell>
-                  <TableCell>Current Stage</TableCell>
-                  <TableCell>Current Status</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Stage</TableCell>
                   
                   
                   
@@ -490,9 +490,9 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
               <TableBody>
                 {currentOrders.map((order) => (
                   <TableRow key={order.order_id} hover>
-                    <TableCell>{order.order_id}</TableCell>
+                    <TableCell>{order.order_number || order.order_id}</TableCell>
                     <TableCell sx={{ maxWidth: 250, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                      {order.order_name || 'N/A'}
+                      {order.project_address || 'N/A'}
                     </TableCell>
                     <TableCell>
                       <Chip 
@@ -504,15 +504,15 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
                     </TableCell>
                     <TableCell>
                       <Chip 
-                        label={order.current_stage || 'N/A'} 
-                        color={getStageColor(order.current_stage)}
+                        label={order.workflow_status || 'N/A'} 
+                        color={getStageColor(order.workflow_status)}
                         size="small"
                       />
                     </TableCell>
                     <TableCell>
                       <Chip 
-                        label={order.current_status || 'N/A'} 
-                        color={order.current_status}
+                        label={order.current_stage || 'N/A'} 
+                        color={getStageColor(order.current_stage)}
                         size="small"
                       />
                     </TableCell>
