@@ -34,17 +34,20 @@ import {
   Receipt as ReceiptIcon,
   People as PeopleIcon,
   Timeline as TimelineIcon,
-  History as HistoryIcon,
   Info as InfoIcon,
   Add as AddIcon,
   Sync as SyncIcon,
   CalendarToday as CalendarIcon,
-  LocalShipping as ShippingIcon
+  LocalShipping as ShippingIcon,
+  Comment as CommentIcon,
+  AttachFile as DocumentIcon,
+  Payment as PaymentIcon,
+  History as ActivityIcon
 } from '@mui/icons-material';
 
 // Import components
 import TabPanel from './TabPanel';
-import CombinedOrderTracking from './CombinedOrderTracking';
+import CombinedOrderTracking from './CombinedOrderTrackingRedesign';
 
 // Import formatters
 import { formatDate, formatCurrency, getStatusColor, getPriorityColor } from '../utils/formatters';
@@ -58,9 +61,11 @@ const OrderTabs = ({
   purchaseOrders, 
   invoices, 
   teamMembers, 
+  events,
   orderId, 
   navigate, 
-  onAddTask 
+  onAddTask,
+  onAddNote 
 }) => {
   const theme = useTheme();
 
@@ -123,21 +128,15 @@ const OrderTabs = ({
           }}
         >
           <Tab 
-            label="Tasks" 
-            icon={<AssignmentIcon />} 
-            iconPosition="start" 
-            sx={{ py: 2 }}
-          />
-          <Tab 
             label="Tracking" 
             icon={<TimelineIcon />} 
             iconPosition="start"
             sx={{ py: 2 }}
           />
           <Tab 
-            label="History" 
-            icon={<HistoryIcon />} 
-            iconPosition="start"
+            label="Tasks" 
+            icon={<AssignmentIcon />} 
+            iconPosition="start" 
             sx={{ py: 2 }}
           />
           <Tab 
@@ -164,11 +163,40 @@ const OrderTabs = ({
             iconPosition="start"
             sx={{ py: 2 }}
           />
+          <Tab 
+            label="Notes" 
+            icon={<CommentIcon />} 
+            iconPosition="start"
+            sx={{ py: 2 }}
+          />
+          <Tab 
+            label="Documents" 
+            icon={<DocumentIcon />} 
+            iconPosition="start"
+            sx={{ py: 2 }}
+          />
+          <Tab 
+            label="Payments" 
+            icon={<PaymentIcon />} 
+            iconPosition="start"
+            sx={{ py: 2 }}
+          />
+          <Tab 
+            label="Activity" 
+            icon={<ActivityIcon />} 
+            iconPosition="start"
+            sx={{ py: 2 }}
+          />
         </Tabs>
       </Box>
       
-      {/* Tasks Tab */}
+      {/* Tracking Tab */}
       <TabPanel value={tabValue} index={0}>
+        <CombinedOrderTracking orderId={orderId} orderData={order} />
+      </TabPanel>
+      
+      {/* Tasks Tab */}
+      <TabPanel value={tabValue} index={1}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -310,18 +338,8 @@ const OrderTabs = ({
         )}
       </TabPanel>
       
-      {/* Tracking Tab */}
-      <TabPanel value={tabValue} index={1}>
-        <CombinedOrderTracking orderId={orderId} orderData={order} />
-      </TabPanel>
-      
-      {/* History Tab */}
-      <TabPanel value={tabValue} index={2}>
-        <CombinedOrderTracking orderId={orderId} orderData={order} />
-      </TabPanel>
-      
       {/* Quotes Tab */}
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={2}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -458,7 +476,7 @@ const OrderTabs = ({
       </TabPanel>
       
       {/* Purchase Orders Tab */}
-      <TabPanel value={tabValue} index={4}>
+      <TabPanel value={tabValue} index={3}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -614,7 +632,7 @@ const OrderTabs = ({
       </TabPanel>
       
       {/* Invoices Tab */}
-      <TabPanel value={tabValue} index={5}>
+      <TabPanel value={tabValue} index={4}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -804,7 +822,7 @@ const OrderTabs = ({
       </TabPanel>
       
       {/* Team Tab */}
-      <TabPanel value={tabValue} index={6}>
+      <TabPanel value={tabValue} index={5}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -932,6 +950,441 @@ const OrderTabs = ({
             </Button>
           </Paper>
         )}
+      </TabPanel>
+      
+      {/* Notes Tab */}
+      <TabPanel value={tabValue} index={6}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 2 
+        }}>
+          <Typography variant="h6">Order Notes</Typography>
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={onAddNote}
+          >
+            Add Note
+          </Button>
+        </Box>
+        
+        {(() => {
+          const noteEvents = events ? events.filter(event => event.event_type === 'note') : [];
+          const sortedNotes = noteEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          
+          return sortedNotes.length > 0 ? (
+            <Stack spacing={2}>
+              {sortedNotes.map((note) => (
+                <Card 
+                  key={note.event_id} 
+                  variant="outlined"
+                  sx={{ 
+                    borderRadius: 2,
+                    transition: 'box-shadow 0.2s',
+                    '&:hover': {
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CommentIcon 
+                          sx={{ 
+                            color: theme.palette.primary.main,
+                            fontSize: '1.2rem'
+                          }} 
+                        />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Note
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDate(note.created_at)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          by {note.user_email || 'System User'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {note.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          ) : (
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 4, 
+                textAlign: 'center',
+                borderRadius: 2,
+                backgroundColor: theme.palette.grey[50]
+              }}
+            >
+              <CommentIcon 
+                sx={{ 
+                  fontSize: 48, 
+                  color: theme.palette.grey[400], 
+                  mb: 2 
+                }} 
+              />
+              <Typography color="text.secondary" gutterBottom>
+                No notes found for this order.
+              </Typography>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />} 
+                sx={{ mt: 2 }}
+                onClick={onAddNote}
+              >
+                Add First Note
+              </Button>
+            </Paper>
+          );
+        })()}
+      </TabPanel>
+      
+      {/* Documents Tab */}
+      <TabPanel value={tabValue} index={7}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 2 
+        }}>
+          <Typography variant="h6">Documents</Typography>
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={() => navigate(`/orders/${orderId}/documents/add`)}
+          >
+            Upload Document
+          </Button>
+        </Box>
+        
+        {(() => {
+          const documentEvents = events ? events.filter(event => event.event_type === 'document') : [];
+          const sortedDocuments = documentEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          
+          return sortedDocuments.length > 0 ? (
+            <Stack spacing={2}>
+              {sortedDocuments.map((doc) => (
+                <Card 
+                  key={doc.event_id} 
+                  variant="outlined"
+                  sx={{ 
+                    borderRadius: 2,
+                    transition: 'box-shadow 0.2s',
+                    '&:hover': {
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <DocumentIcon 
+                          sx={{ 
+                            color: theme.palette.warning.main,
+                            fontSize: '1.2rem'
+                          }} 
+                        />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Document Event
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDate(doc.created_at)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          by {doc.user_email || 'System User'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {doc.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          ) : (
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 4, 
+                textAlign: 'center',
+                borderRadius: 2,
+                backgroundColor: theme.palette.grey[50]
+              }}
+            >
+              <DocumentIcon 
+                sx={{ 
+                  fontSize: 48, 
+                  color: theme.palette.grey[400], 
+                  mb: 2 
+                }} 
+              />
+              <Typography color="text.secondary" gutterBottom>
+                No documents found for this order.
+              </Typography>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />} 
+                sx={{ mt: 2 }}
+                onClick={() => navigate(`/orders/${orderId}/documents/add`)}
+              >
+                Upload First Document
+              </Button>
+            </Paper>
+          );
+        })()}
+      </TabPanel>
+      
+      {/* Payments Tab */}
+      <TabPanel value={tabValue} index={8}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 2 
+        }}>
+          <Typography variant="h6">Payments</Typography>
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={() => navigate(`/orders/${orderId}/payments/add`)}
+          >
+            Record Payment
+          </Button>
+        </Box>
+        
+        {(() => {
+          const paymentEvents = events ? events.filter(event => event.event_type === 'payment') : [];
+          const sortedPayments = paymentEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          
+          return sortedPayments.length > 0 ? (
+            <Stack spacing={2}>
+              {sortedPayments.map((payment) => (
+                <Card 
+                  key={payment.event_id} 
+                  variant="outlined"
+                  sx={{ 
+                    borderRadius: 2,
+                    transition: 'box-shadow 0.2s',
+                    '&:hover': {
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PaymentIcon 
+                          sx={{ 
+                            color: theme.palette.success.main,
+                            fontSize: '1.2rem'
+                          }} 
+                        />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          Payment
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDate(payment.created_at)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          by {payment.user_email || 'System User'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {payment.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          ) : (
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 4, 
+                textAlign: 'center',
+                borderRadius: 2,
+                backgroundColor: theme.palette.grey[50]
+              }}
+            >
+              <PaymentIcon 
+                sx={{ 
+                  fontSize: 48, 
+                  color: theme.palette.grey[400], 
+                  mb: 2 
+                }} 
+              />
+              <Typography color="text.secondary" gutterBottom>
+                No payment events found for this order.
+              </Typography>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />} 
+                sx={{ mt: 2 }}
+                onClick={() => navigate(`/orders/${orderId}/payments/add`)}
+              >
+                Record First Payment
+              </Button>
+            </Paper>
+          );
+        })()}
+      </TabPanel>
+      
+      {/* Activity Tab */}
+      <TabPanel value={tabValue} index={9}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 2 
+        }}>
+          <Typography variant="h6">Order Activity</Typography>
+        </Box>
+        
+        {(() => {
+          // Filter for all other event types (excluding ones covered by other tabs)
+          const activityEvents = events ? events.filter(event => 
+            !['note', 'document', 'payment'].includes(event.event_type)
+          ) : [];
+          const sortedActivity = activityEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          
+          const getEventIcon = (eventType) => {
+            switch(eventType) {
+              case 'order_creation': return <AddIcon sx={{ color: theme.palette.success.main }} />;
+              case 'workflow_status_change': 
+              case 'status_change': return <AssignmentIcon sx={{ color: theme.palette.primary.main }} />;
+              case 'stage_completion': 
+              case 'stage_transition': 
+              case 'stage_change': return <TimelineIcon sx={{ color: theme.palette.info.main }} />;
+              case 'creation': return <AddIcon sx={{ color: theme.palette.success.main }} />;
+              case 'update': return <SyncIcon sx={{ color: theme.palette.info.main }} />;
+              default: return <ActivityIcon sx={{ color: theme.palette.grey[600] }} />;
+            }
+          };
+          
+          const getEventTypeLabel = (eventType) => {
+            switch(eventType) {
+              case 'order_creation': return 'Order Created';
+              case 'workflow_status_change': return 'Status Changed';
+              case 'status_change': return 'Status Updated';
+              case 'stage_completion': return 'Stage Completed';
+              case 'stage_transition': return 'Stage Transition';
+              case 'stage_change': return 'Stage Changed';
+              case 'creation': return 'Created';
+              case 'update': return 'Updated';
+              default: return 'Activity';
+            }
+          };
+          
+          return sortedActivity.length > 0 ? (
+            <Stack spacing={2}>
+              {sortedActivity.map((activity) => (
+                <Card 
+                  key={activity.event_id} 
+                  variant="outlined"
+                  sx={{ 
+                    borderRadius: 2,
+                    transition: 'box-shadow 0.2s',
+                    '&:hover': {
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {getEventIcon(activity.event_type)}
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          {getEventTypeLabel(activity.event_type)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDate(activity.created_at)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          by {activity.user_email || 'System User'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {activity.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          ) : (
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 4, 
+                textAlign: 'center',
+                borderRadius: 2,
+                backgroundColor: theme.palette.grey[50]
+              }}
+            >
+              <ActivityIcon 
+                sx={{ 
+                  fontSize: 48, 
+                  color: theme.palette.grey[400], 
+                  mb: 2 
+                }} 
+              />
+              <Typography color="text.secondary" gutterBottom>
+                No activity events found for this order.
+              </Typography>
+            </Paper>
+          );
+        })()}
       </TabPanel>
     </Paper>
   );

@@ -51,6 +51,7 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   // Parse URL query parameters
   const searchParams = new URLSearchParams(location.search);
   const urlFilter = searchParams.get('current_stage') || initialFilter;
+  const customerFilter = searchParams.get('customer') || '';
   
   // State variables
   const [orders, setOrders] = useState([]);
@@ -128,6 +129,11 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   useEffect(() => {
     let filtered = [...orders];
     
+    // Apply customer filter if coming from customer page
+    if (customerFilter) {
+      filtered = filtered.filter(order => order.customer_id === customerFilter);
+    }
+    
     // Apply stage filter
     if (stageFilter) {
       filtered = filtered.filter(order => order.current_stage === stageFilter);
@@ -145,13 +151,14 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
         (order.project_address && order.project_address.toLowerCase().includes(lowercasedSearch)) ||
         (order.description && order.description.toLowerCase().includes(lowercasedSearch)) ||
         (order.project_city && order.project_city.toLowerCase().includes(lowercasedSearch)) ||
-        (order.work_order_number && order.work_order_number.toLowerCase().includes(lowercasedSearch))
+        (order.work_order_number && order.work_order_number.toLowerCase().includes(lowercasedSearch)) ||
+        (order.order_name && order.order_name.toLowerCase().includes(lowercasedSearch))
       );
     }
     
     setFilteredOrders(filtered);
     setPage(1); // Reset to first page on filter change
-  }, [orders, stageFilter, priorityFilter, searchTerm]);
+  }, [orders, stageFilter, priorityFilter, searchTerm, customerFilter]);
   
   // Current page items
   const currentOrders = filteredOrders.slice(

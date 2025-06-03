@@ -312,6 +312,9 @@ const Navbar = () => {
                 <Button color="inherit" component={Link} to="/orders" sx={{ mr: 1 }}>
                   Orders
                 </Button>
+                <Button color="inherit" component={Link} to="/customers" sx={{ mr: 1 }}>
+                  Customers
+                </Button>
                 <Button color="inherit" component={Link} to="/quickbooks/products" sx={{ mr: 1 }}>
                   QuickBooks Products
                 </Button>

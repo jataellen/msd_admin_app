@@ -71,6 +71,7 @@ MATERIALS_AND_INSTALLATION_STAGES = [
         "id": "QUOTATION",
         "name": "Quotation",
         "statuses": [
+            {"id": "QUOTE_REQUESTED", "name": "Quote Requested"},
             {"id": "QUOTE_PREPARED", "name": "Quote Prepared"},
             {"id": "QUOTE_SENT", "name": "Quote Sent"},
             {"id": "QUOTE_ACCEPTED", "name": "Quote Accepted"},

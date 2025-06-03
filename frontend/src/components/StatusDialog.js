@@ -36,11 +36,13 @@ const StatusDialog = ({
             label="Status"
             onChange={onStatusChange}
           >
-            {statuses.map((status) => (
-              <MenuItem key={status} value={status}>
-                {status}
-              </MenuItem>
-            ))}
+            {statuses
+              .filter(status => status != null && status !== '')
+              .map((status) => (
+                <MenuItem key={status} value={status}>
+                  {String(status)}
+                </MenuItem>
+              ))}
           </Select>
         </FormControl>
       </DialogContent>

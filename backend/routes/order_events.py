@@ -30,7 +30,7 @@ class OrderEventCreate(OrderEventBase):
 
 class OrderEvent(OrderEventBase):
     event_id: str
-    created_by: str  # UUID of the user
+    created_by: Optional[str] = None  # UUID of the user (can be null for system events)
     created_at: datetime
 
     class Config:
@@ -114,8 +114,8 @@ async def get_order_events(
         if event_type:
             query = query.eq("event_type", event_type)
 
-        # Apply sorting and pagination
-        query = query.order("created_at", desc=True).range(skip, skip + limit - 1)
+        # Apply sorting and pagination - sort by created_at ascending (oldest first) for proper timeline display
+        query = query.order("created_at", desc=False).range(skip, skip + limit - 1)
 
         # Execute query
         response = query.execute()
@@ -128,19 +128,15 @@ async def get_order_events(
         for event in events:
             if event.get("created_by"):
                 try:
-                    user_response = (
-                        supabase.from_("auth.users")
-                        .select("email")
-                        .eq("id", event["created_by"])
-                        .execute()
-                    )
-                    if user_response.data:
-                        event["user_email"] = user_response.data[0].get("email")
+                    # Try to get user info from Supabase auth
+                    user_response = supabase.auth.admin.get_user_by_id(event["created_by"])
+                    if user_response.user and user_response.user.email:
+                        event["user_email"] = user_response.user.email
+                    else:
+                        event["user_email"] = "Unknown User"
                 except Exception as e:
-                    logger.warning(
-                        f"Could not fetch user info for {event['created_by']}: {str(e)}"
-                    )
-                    event["user_email"] = "Unknown User"
+                    # If auth lookup fails, just use a default
+                    event["user_email"] = "System User"
 
         return events
 

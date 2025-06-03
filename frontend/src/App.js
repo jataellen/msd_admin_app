@@ -27,6 +27,7 @@ import Navbar from "./components/Navbar";
 import OrderList from "./pages/OrderList";
 import OrderDetail from "./pages/OrderDetail";
 import OrderForm from "./pages/OrderForm";
+import CustomerList from "./pages/CustomerList";
 
 // Define the API URL for backend
 const API_URL = 'http://localhost:8000';
@@ -202,7 +203,7 @@ const AppContent = () => {
             {/* Other Routes */}
             <Route path="/quotes" element={<Box sx={{ p: 2 }}>Quotes Page (Coming Soon)</Box>} />
             <Route path="/purchase-orders" element={<Box sx={{ p: 2 }}>Purchase Orders (Coming Soon)</Box>} />
-            <Route path="/customers" element={<Box sx={{ p: 2 }}>Customers Page (Coming Soon)</Box>} />
+            <Route path="/customers" element={<CustomerList />} />
             <Route path="/invoices" element={<Box sx={{ p: 2 }}>Invoices Page (Coming Soon)</Box>} />
             <Route path="/employees" element={<Box sx={{ p: 2 }}>Employee List Page</Box>} />
             <Route path="/employees/add" element={<Box sx={{ p: 2 }}>Add Employee Page</Box>} />

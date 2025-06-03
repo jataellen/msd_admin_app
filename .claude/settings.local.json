@@ -6,7 +6,22 @@
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(sed:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg \"setOrderStatuses\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/pages/OrderDetail.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -B 5 -A 5 \"setOrderStatuses\\(statusesResponse\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/pages/OrderDetail.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -B 5 -A 5 \"workflow_status_change|status.*change\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTracking.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -A 10 -B 5 \"status.*completed.*stage\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTracking.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -B 10 -A 5 \"Add completed status\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTracking.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n \"})()}\\)\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTracking.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -A 3 -B 3 \"}\\)\\(\\);\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTracking.js)",
+      "Bash(git checkout:*)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -A 10 -B 5 \"stageTimelineItems\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTracking.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n \"import.*CombinedOrderTracking\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/OrderTabs.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -A 3 -B 3 \"Statuses\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -A 5 -B 5 \"Other stage events\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)",
+      "Bash(cp:*)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n \"Other stage events\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -B 10 -A 2 \"Other stage events\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)"
     ],
     "deny": []
   }

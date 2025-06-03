@@ -10,8 +10,7 @@ import {
   useTheme,
   Card,
   CardContent,
-  Avatar,
-  LinearProgress
+  Avatar
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -240,83 +239,6 @@ const OrderHeader = ({ order, isMobile, onEdit, onAddTask }) => {
           </Box>
         )}
       </Paper>
-
-      {/* Progress Card - Completely Separate */}
-      <Card 
-        elevation={2} 
-        sx={{ 
-          borderRadius: 2, 
-          mb: 3,
-          transition: 'all 0.3s'
-        }}
-      >
-        <CardContent sx={{ p: 2 }}>
-          {/* Modified Grid layout to ensure full width progress bar */}
-          <Box sx={{ width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: isMobile ? 'column' : 'row',
-              alignItems: isMobile ? 'flex-start' : 'center',
-              justifyContent: 'space-between', 
-              mb: 2 
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: isMobile ? 2 : 0 }}>
-                <Avatar sx={{ bgcolor: theme.palette.info.light, width: 40, height: 40, mr: 2 }}>
-                  <TimelineIcon fontSize="small" />
-                </Avatar>
-                <Typography variant="h6" color="text.secondary">
-                  Progress
-                </Typography>
-
-                <Typography 
-                  variant="h5" 
-                  component="div" 
-                  sx={{ 
-                    fontWeight: 'bold', 
-                    color: theme.palette.info.main,
-                    mr: 3,
-                    ml: 1
-                  }}
-                >
-                  {order.progress_percentage !== null && order.progress_percentage !== undefined 
-                    ? `${order.progress_percentage}%` 
-                    : '0%'}
-                </Typography>
-              </Box>
-              
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: isMobile ? '100%' : 'auto'
-              }}>
-                
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary" 
-                  sx={{ display: 'flex', alignItems: 'center' }}
-                >
-                  <AccessTimeIcon fontSize="small" sx={{ mr: 0.5 }} />
-                  Last Updated: {formatDate(order.updated_at)}
-                </Typography>
-              </Box>
-            </Box>
-            
-            {/* Progress bar now takes full width of its container */}
-            <LinearProgress 
-              variant="determinate" 
-              value={order.progress_percentage || 0} 
-              color="info" 
-              sx={{ 
-                height: 10, 
-                borderRadius: 5, 
-                backgroundColor: theme.palette.grey[200],
-                width: '100%'
-              }}
-            />
-          </Box>
-        </CardContent>
-      </Card>
     </>
   );
 };

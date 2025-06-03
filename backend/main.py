@@ -9,6 +9,7 @@ from routes.auth_routes import router as auth_router
 from routes.order_routes import router as order_router
 from routes.order_events import router as order_events_router
 from routes.task_routes import router as task_router
+from routes.customer_routes import router as customer_router
 
 # from routes.quickbooks_routes import router as quickbooks_mock_router
 from routes.quickbooks_api_routes import router as quickbooks_api_router
@@ -36,6 +37,7 @@ app.include_router(auth_router)
 app.include_router(order_router)
 app.include_router(order_events_router)
 app.include_router(task_router)
+app.include_router(customer_router)
 # app.include_router(
 #     quickbooks_mock_router
 # )  # Keep the mock routes for backward compatibility
