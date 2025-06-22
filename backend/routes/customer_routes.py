@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 from database import supabase
 from auth import get_current_user
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field
 from uuid import UUID
 
 # Set up logging
@@ -16,11 +16,11 @@ router = APIRouter(prefix="/customers", tags=["customers"])
 
 # Request/Response models
 class CustomerBase(BaseModel):
-    company_name: str
+    name: str = Field(..., description="Customer name (individual for residential, company for commercial)")
     customer_type: str = Field(..., description="RESIDENTIAL or COMMERCIAL")
     contact_first_name: Optional[str] = None
     contact_last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None  # Changed from EmailStr to str for now
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
@@ -32,11 +32,11 @@ class CustomerCreate(CustomerBase):
     pass
 
 class CustomerUpdate(BaseModel):
-    company_name: Optional[str] = None
+    name: Optional[str] = None
     customer_type: Optional[str] = None
     contact_first_name: Optional[str] = None
     contact_last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
@@ -51,7 +51,7 @@ class CustomerResponse(CustomerBase):
 
 @router.get("/", response_model=List[CustomerResponse])
 async def get_customers(
-    search: Optional[str] = Query(None, description="Search by company name or contact name"),
+    search: Optional[str] = Query(None, description="Search by name or contact name"),
     customer_type: Optional[str] = Query(None, description="Filter by customer type"),
     limit: int = Query(100, le=1000),
     offset: int = Query(0, ge=0),
@@ -65,7 +65,7 @@ async def get_customers(
         # Add search filter if provided
         if search:
             query = query.or_(
-                f"company_name.ilike.%{search}%,"
+                f"name.ilike.%{search}%,"
                 f"contact_first_name.ilike.%{search}%,"
                 f"contact_last_name.ilike.%{search}%"
             )
@@ -75,7 +75,7 @@ async def get_customers(
             query = query.eq("customer_type", customer_type.upper())
         
         # Add ordering and pagination
-        query = query.order("company_name").range(offset, offset + limit - 1)
+        query = query.order("name").range(offset, offset + limit - 1)
         
         # Execute query
         response = query.execute()
@@ -115,8 +115,8 @@ async def create_customer(
         if customer.customer_type.upper() not in ["RESIDENTIAL", "COMMERCIAL"]:
             raise HTTPException(status_code=400, detail="Invalid customer type. Must be RESIDENTIAL or COMMERCIAL")
         
-        # Prepare customer data
-        customer_data = customer.dict()
+        # Prepare customer data - only include non-None values
+        customer_data = customer.dict(exclude_none=True)
         customer_data["customer_type"] = customer_data["customer_type"].upper()
         
         # Insert customer

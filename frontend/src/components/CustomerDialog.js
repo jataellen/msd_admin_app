@@ -1,4 +1,4 @@
-// CustomerDialog.js - Modal for creating new customers inline
+// CustomerDialog.js - Standard online form style customer creation
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -13,39 +13,26 @@ import {
   Select,
   MenuItem,
   Alert,
-  Box,
   Typography,
   Divider,
-  IconButton,
-  Stack,
-  Avatar,
-  Chip,
-  InputAdornment,
-  alpha,
-  useTheme,
-  Fade,
-  CircularProgress
+  Box,
+  Stack
 } from '@mui/material';
 import {
-  Close as CloseIcon,
   Business as BusinessIcon,
-  Home as HomeIcon,
   Person as PersonIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
   LocationOn as LocationIcon,
-  Description as NotesIcon,
-  Save as SaveIcon
+  Description as NotesIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = 'http://localhost:8000';
 
 const CustomerDialog = ({ open, onClose, onCustomerCreated }) => {
-  const theme = useTheme();
-  
+  const { isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
-    company_name: '',
+    name: '',
     customer_type: 'RESIDENTIAL',
     contact_first_name: '',
     contact_last_name: '',
@@ -60,7 +47,6 @@ const CustomerDialog = ({ open, onClose, onCustomerCreated }) => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [activeSection, setActiveSection] = useState('company'); // For visual feedback
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -71,9 +57,15 @@ const CustomerDialog = ({ open, onClose, onCustomerCreated }) => {
   };
 
   const handleSubmit = async () => {
-    // Validate required fields
-    if (!formData.company_name) {
-      setError('Company name is required');
+    // Check authentication first
+    if (!isAuthenticated) {
+      setError('You must be logged in to create a customer');
+      return;
+    }
+
+    // Validate required field
+    if (!formData.name) {
+      setError('Name is required');
       return;
     }
 
@@ -81,16 +73,32 @@ const CustomerDialog = ({ open, onClose, onCustomerCreated }) => {
     setError(null);
 
     try {
+      console.log('User authenticated:', isAuthenticated);
+      console.log('User details:', user);
+      
+      // For now, only send the essential fields that we know work
+      const cleanedData = {
+        name: formData.name,
+        customer_type: formData.customer_type
+      };
+      
+      // Add notes if provided
+      if (formData.notes && formData.notes.trim() !== '') {
+        cleanedData.notes = formData.notes;
+      }
+      
+      console.log('Sending customer data:', cleanedData);
       const response = await axios.post(
-        `${API_URL}/customers`,
-        formData,
+        `${API_URL}/customers/`,
+        cleanedData,
         { withCredentials: true }
       );
 
+      console.log('Customer creation response:', response.data);
       if (response.data) {
         // Reset form
         setFormData({
-          company_name: '',
+          name: '',
           customer_type: 'RESIDENTIAL',
           contact_first_name: '',
           contact_last_name: '',
@@ -108,8 +116,35 @@ const CustomerDialog = ({ open, onClose, onCustomerCreated }) => {
         onClose();
       }
     } catch (err) {
-      console.error('Error creating customer:', err);
-      setError(err.response?.data?.detail || 'Failed to create customer');
+      console.error('Full error object:', err);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error message:', err.message);
+      
+      let errorMessage = 'Failed to create customer';
+      if (err.response?.status === 403 || err.response?.status === 401) {
+        errorMessage = 'You are not authorized. Please log in and try again.';
+      } else if (err.response?.status === 422) {
+        // Validation error - show the detailed error
+        const details = err.response?.data?.detail;
+        if (Array.isArray(details)) {
+          errorMessage = `Validation error: ${details.map(d => d.msg || d.message || String(d)).join(', ')}`;
+        } else if (typeof details === 'string') {
+          errorMessage = `Validation error: ${details}`;
+        } else if (details && typeof details === 'object') {
+          errorMessage = `Validation error: ${JSON.stringify(details)}`;
+        } else {
+          errorMessage = 'Validation error: Please check your input data';
+        }
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -118,7 +153,7 @@ const CustomerDialog = ({ open, onClose, onCustomerCreated }) => {
   const handleCancel = () => {
     // Reset form and errors
     setFormData({
-      company_name: '',
+      name: '',
       customer_type: 'RESIDENTIAL',
       contact_first_name: '',
       contact_last_name: '',
@@ -140,503 +175,249 @@ const CustomerDialog = ({ open, onClose, onCustomerCreated }) => {
       onClose={handleCancel} 
       maxWidth="md" 
       fullWidth
-      TransitionComponent={Fade}
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          overflow: 'hidden'
-        }
-      }}
     >
-      {/* Header */}
-      <Box sx={{ 
-        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-        color: 'white',
-        p: 3,
-        position: 'relative'
-      }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <Avatar sx={{ 
-              bgcolor: alpha(theme.palette.common.white, 0.2),
-              width: 40,
-              height: 40
-            }}>
-              <PersonIcon sx={{ fontSize: 24 }} />
-            </Avatar>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Add New Customer
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.85rem' }}>
-                Fill in the details to create a new customer record
-              </Typography>
-            </Box>
-          </Stack>
-          <IconButton 
-            onClick={handleCancel}
-            sx={{ 
-              color: 'white',
-              '&:hover': {
-                bgcolor: alpha(theme.palette.common.white, 0.1)
-              }
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </Stack>
-      </Box>
+      <DialogTitle sx={{ pb: 1 }}>
+        <Typography variant="h5" component="div">
+          New Customer Registration
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          Please fill out all required fields marked with *
+        </Typography>
+      </DialogTitle>
       
-      <DialogContent sx={{ p: 0 }}>
+      <DialogContent sx={{ pt: 2 }}>
         {error && (
-          <Alert 
-            severity="error" 
-            sx={{ 
-              m: 3,
-              mb: 0,
-              borderRadius: 2
-            }}
-            onClose={() => setError(null)}
-          >
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
-        <Box sx={{ p: 3 }}>
-          <Grid container spacing={2.5}>
-            {/* Company Information Section */}
-            <Grid item xs={12}>
-              <Box sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                mb: 2,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.primary.main, 0.04),
-                border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}`
-              }}>
-                <Avatar sx={{ 
-                  bgcolor: theme.palette.primary.main,
-                  width: 32,
-                  height: 32
-                }}>
-                  <BusinessIcon fontSize="small" />
-                </Avatar>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: theme.palette.primary.main, fontSize: '0.95rem' }}>
-                  Company Information
-                </Typography>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={7}>
-              <TextField
-                fullWidth
-                required
-                label="Company Name"
-                name="company_name"
-                value={formData.company_name}
-                onChange={handleChange}
-                autoFocus
-                size="small"
-                placeholder="Enter company or business name"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <BusinessIcon sx={{ color: theme.palette.grey[400], fontSize: '1.1rem' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                    '&:hover fieldset': {
-                      borderColor: theme.palette.primary.main,
-                    },
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={5}>
-              <FormControl fullWidth required size="small">
-                <InputLabel sx={{ fontSize: '0.9rem' }}>Customer Type</InputLabel>
-                <Select
-                  name="customer_type"
-                  value={formData.customer_type}
+        <Box component="form" noValidate>
+          {/* Company Information Section */}
+          <Box sx={{ mb: 4 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <BusinessIcon sx={{ color: 'primary.main' }} />
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 500, mb: 0 }}>
+                Company Information
+              </Typography>
+            </Stack>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  required
+                  label={formData.customer_type === 'RESIDENTIAL' ? "Customer Name" : "Company/Business Name"}
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
-                  label="Customer Type"
-                  sx={{
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderRadius: 2,
-                    },
+                  autoFocus
+                  helperText={formData.customer_type === 'RESIDENTIAL' ? 
+                    "Enter the customer's full name (e.g., John Smith)" : 
+                    "Enter the legal business name"}
+                  sx={{ minWidth: 250 }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth required>
+                  <InputLabel>Customer Type</InputLabel>
+                  <Select
+                    name="customer_type"
+                    value={formData.customer_type}
+                    onChange={handleChange}
+                    label="Customer Type"
+                  >
+                    <MenuItem value="RESIDENTIAL">Residential</MenuItem>
+                    <MenuItem value="COMMERCIAL">Commercial</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Contact Information Section */}
+          <Box sx={{ mb: 4 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <PersonIcon sx={{ color: 'success.main' }} />
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 500, mb: 0 }}>
+                {formData.customer_type === 'RESIDENTIAL' ? 'Contact Information' : 'Primary Contact'}
+              </Typography>
+            </Stack>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Grid container spacing={2}>
+              {formData.customer_type === 'COMMERCIAL' && (
+                <>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Contact First Name"
+                      name="contact_first_name"
+                      value={formData.contact_first_name}
+                      onChange={handleChange}
+                      helperText="Primary contact at the business"
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Contact Last Name"
+                      name="contact_last_name"
+                      value={formData.contact_last_name}
+                      onChange={handleChange}
+                    />
+                  </Grid>
+                </>
+              )}
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Email Address"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  helperText="We'll use this for order confirmations and updates"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Phone Number"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="(555) 123-4567"
+                  helperText="Include area code"
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Service Address Section */}
+          <Box sx={{ mb: 4 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <LocationIcon sx={{ color: 'info.main' }} />
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 500, mb: 0 }}>
+                Service Address
+              </Typography>
+            </Stack>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Street Address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="123 Main Street, Suite 100"
+                />
+              </Grid>
+
+              <Grid item xs={12} md={5}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth sx={{ minWidth: 140 }}>
+                  <InputLabel>Province</InputLabel>
+                  <Select
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    label="Province"
+                  >
+                    <MenuItem value="AB">AB</MenuItem>
+                    <MenuItem value="BC">BC</MenuItem>
+                    <MenuItem value="MB">MB</MenuItem>
+                    <MenuItem value="NB">NB</MenuItem>
+                    <MenuItem value="NL">NL</MenuItem>
+                    <MenuItem value="NT">NT</MenuItem>
+                    <MenuItem value="NS">NS</MenuItem>
+                    <MenuItem value="NU">NU</MenuItem>
+                    <MenuItem value="ON">ON</MenuItem>
+                    <MenuItem value="PE">PE</MenuItem>
+                    <MenuItem value="QC">QC</MenuItem>
+                    <MenuItem value="SK">SK</MenuItem>
+                    <MenuItem value="YT">YT</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  label="Postal Code"
+                  name="zip_code"
+                  value={formData.zip_code}
+                  onChange={handleChange}
+                  placeholder="A1A 1A1"
+                  inputProps={{ 
+                    maxLength: 7,
+                    style: { textTransform: 'uppercase' }
                   }}
-                >
-                  <MenuItem value="RESIDENTIAL">
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <HomeIcon fontSize="small" color="success" />
-                      <span>Residential</span>
-                    </Stack>
-                  </MenuItem>
-                  <MenuItem value="COMMERCIAL">
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <BusinessIcon fontSize="small" color="primary" />
-                      <span>Commercial</span>
-                    </Stack>
-                  </MenuItem>
-                </Select>
-              </FormControl>
+                />
+              </Grid>
             </Grid>
+          </Box>
 
-            {/* Contact Information Section */}
-            <Grid item xs={12}>
-              <Box sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                mb: 2,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.success.main, 0.04),
-                border: `1px solid ${alpha(theme.palette.success.main, 0.12)}`
-              }}>
-                <Avatar sx={{ 
-                  bgcolor: theme.palette.success.main,
-                  width: 32,
-                  height: 32
-                }}>
-                  <PersonIcon fontSize="small" />
-                </Avatar>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: theme.palette.success.main, fontSize: '0.95rem' }}>
-                  Contact Information
-                </Typography>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                label="First Name"
-                name="contact_first_name"
-                value={formData.contact_first_name}
-                onChange={handleChange}
-                placeholder="Contact's first name"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon sx={{ color: theme.palette.grey[400], fontSize: '1.1rem' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Last Name"
-                name="contact_last_name"
-                value={formData.contact_last_name}
-                onChange={handleChange}
-                placeholder="Contact's last name"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Email Address"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="contact@company.com"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <EmailIcon sx={{ color: theme.palette.grey[400], fontSize: '1.1rem' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Phone Number"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="(555) 123-4567"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PhoneIcon sx={{ color: theme.palette.grey[400], fontSize: '1.1rem' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            {/* Address Information Section */}
-            <Grid item xs={12}>
-              <Box sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                mb: 2,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.info.main, 0.04),
-                border: `1px solid ${alpha(theme.palette.info.main, 0.12)}`
-              }}>
-                <Avatar sx={{ 
-                  bgcolor: theme.palette.info.main,
-                  width: 32,
-                  height: 32
-                }}>
-                  <LocationIcon fontSize="small" />
-                </Avatar>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: theme.palette.info.main, fontSize: '0.95rem' }}>
-                  Address Information
-                </Typography>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Street Address"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                placeholder="123 Main Street, Apt 4B"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LocationIcon sx={{ color: theme.palette.grey[400], fontSize: '1.1rem' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                size="small"
-                label="City"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="Houston"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                size="small"
-                label="State"
-                name="state"
-                value={formData.state}
-                onChange={handleChange}
-                placeholder="TX"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                size="small"
-                label="ZIP Code"
-                name="zip_code"
-                value={formData.zip_code}
-                onChange={handleChange}
-                placeholder="12345"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-
-            {/* Additional Notes Section */}
-            <Grid item xs={12}>
-              <Box sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                mb: 2,
-                p: 2,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.warning.main, 0.04),
-                border: `1px solid ${alpha(theme.palette.warning.main, 0.12)}`
-              }}>
-                <Avatar sx={{ 
-                  bgcolor: theme.palette.warning.main,
-                  width: 32,
-                  height: 32
-                }}>
-                  <NotesIcon fontSize="small" />
-                </Avatar>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: theme.palette.warning.main, fontSize: '0.95rem' }}>
-                  Additional Information
-                </Typography>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Additional Notes"
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                multiline
-                rows={3}
-                placeholder="Special requirements, preferences, or other notes about this customer..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    fontSize: '0.9rem',
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.9rem'
-                  }
-                }}
-              />
-            </Grid>
-          </Grid>
+          {/* Additional Information Section */}
+          <Box sx={{ mb: 2 }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <NotesIcon sx={{ color: 'warning.main' }} />
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 500, mb: 0 }}>
+                Additional Information
+              </Typography>
+            </Stack>
+            <Divider sx={{ mb: 2 }} />
+            
+            <TextField
+              fullWidth
+              label="Notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              multiline
+              rows={4}
+              placeholder="Any special instructions, preferences, or important information about this customer..."
+              helperText="This information will be visible on orders and quotes"
+            />
+          </Box>
         </Box>
       </DialogContent>
 
-      {/* Actions */}
-      <Box sx={{ 
-        p: 2, 
-        pt: 0,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <Typography variant="caption" color="text.secondary">
-          * Required fields
-        </Typography>
-        <Stack direction="row" spacing={2}>
-          <Button 
-            onClick={handleCancel} 
-            disabled={loading}
-            sx={{ 
-              borderRadius: 2,
-              px: 3,
-              textTransform: 'none',
-              fontWeight: 500
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={loading || !formData.company_name}
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-            sx={{ 
-              borderRadius: 2,
-              px: 3,
-              textTransform: 'none',
-              fontWeight: 500,
-              minWidth: 150,
-              boxShadow: 'none',
-              '&:hover': {
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-              }
-            }}
-          >
-            {loading ? 'Creating...' : 'Create Customer'}
-          </Button>
-        </Stack>
-      </Box>
+      <Divider />
+      
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button 
+          onClick={handleCancel} 
+          disabled={loading}
+          size="large"
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={loading || !formData.name}
+          size="large"
+        >
+          {loading ? 'Creating Customer...' : 'Create Customer'}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };

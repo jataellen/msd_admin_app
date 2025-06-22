@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from database import supabase, SUPABASE_BUCKET, SUPABASE_URL
 from auth import get_current_user
 
-router = APIRouter()
+router = APIRouter(prefix="/employees", tags=["employees"])
 
 
 # Employee models for JSON body requests
@@ -22,7 +22,29 @@ class EmployeeUpdate(BaseModel):
 
 
 @router.get("/")
-async def read_work_itesm(current_user: dict = Depends(get_current_user)):
+async def get_employees(current_user: dict = Depends(get_current_user)):
+    """Get all active employees for dropdowns and selection"""
+    try:
+        response = supabase.table("employees").select("employee_id, full_name, email").eq("is_active", True).execute()
+        employees = response.data
+        
+        # Format the data for the frontend
+        formatted_employees = []
+        for emp in employees:
+            if emp.get("employee_id") and emp.get("full_name"):
+                formatted_employees.append({
+                    "employee_id": emp["employee_id"],
+                    "full_name": emp["full_name"],
+                    "email": emp.get("email", "")
+                })
+                
+        return {"employees": formatted_employees}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching employees: {str(e)}")
+
+
+@router.get("/work-items")
+async def read_work_items(current_user: dict = Depends(get_current_user)):
     response = supabase.table("work_items").select("*").execute()
     work_items = response.data
     return {"work_items": work_items}

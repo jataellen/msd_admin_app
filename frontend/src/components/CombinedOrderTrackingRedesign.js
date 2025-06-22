@@ -64,7 +64,18 @@ import {
   MoreVert as MoreVertIcon,
   PlayArrow as SetCurrentIcon,
   Clear as RemoveIcon,
+  Assignment as TaskIcon,
+  RequestQuote as QuoteIcon,
+  LocalShipping as POIcon,
+  Receipt as InvoiceIcon,
+  InsertDriveFile as FileIcon,
+  NoteAdd as NoteAddIcon,
 } from '@mui/icons-material';
+
+// Import TaskDialog component
+import TaskDialog from './TaskDialog';
+// Import useAuth hook
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = 'http://localhost:8000';
 
@@ -148,6 +159,16 @@ const mapWorkflowStatusToStage = (workflowStatus) => {
 };
 
 const CombinedOrderTracking = ({ orderId, orderData }) => {
+  // Get current user from auth context
+  const { user } = useAuth();
+  
+  // Helper function to get tomorrow's date in YYYY-MM-DD format
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
+  
   // Common state variables
   const [order, setOrder] = useState(orderData || null);
   const [loading, setLoading] = useState(true);
@@ -179,6 +200,21 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
   const [selectedStatusForMenu, setSelectedStatusForMenu] = useState(null);
   const [workflowTypeDialogOpen, setWorkflowTypeDialogOpen] = useState(false);
   const [newWorkflowType, setNewWorkflowType] = useState('');
+  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
+  const [actionMenuStatus, setActionMenuStatus] = useState(null);
+  
+  // Task dialog state
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskFormData, setTaskFormData] = useState({
+    title: '',
+    status: 'PENDING',
+    priority: 'MEDIUM',
+    assigned_to: '',  // Employee UUID
+    description: '',
+    due_date: getTomorrowDate()
+  });
+  const [taskLoading, setTaskLoading] = useState(false);
+  const [employees, setEmployees] = useState([]);
   
   // Fetch order and workflow data if not provided
   useEffect(() => {
@@ -190,7 +226,8 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
           const orderType = orderData.type || 'MATERIALS_ONLY';
           await Promise.all([
             fetchWorkflowData(orderType),
-            fetchEvents()
+            fetchEvents(),
+            fetchEmployees()
           ]);
         } else if (orderId) {
           await fetchOrder();
@@ -257,6 +294,7 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
         const orderType = response.data.order.workflow_type || 'MATERIALS_ONLY';
         fetchWorkflowData(orderType);
         fetchEvents();
+        fetchEmployees();
       } else {
         throw new Error('Invalid order data received from server');
       }
@@ -268,6 +306,22 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Fetch employees for task assignment
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/employees/`, {
+        withCredentials: true
+      });
+      
+      if (response.data && response.data.employees) {
+        setEmployees(response.data.employees);
+      }
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+      // Don't show error UI for this, just log it
     }
   };
   
@@ -527,6 +581,76 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
     }
   };
 
+  // Handle task dialog functions
+  const handleTaskChange = (field, value) => {
+    setTaskFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskFormData.title.trim()) return;
+    
+    setTaskLoading(true);
+    
+    try {
+      // Build task data - use order UUID not order number
+      const taskData = {
+        title: taskFormData.title,
+        status: taskFormData.status,
+        priority: taskFormData.priority,
+        order_id: order?.order_id || orderId,  // Use actual order UUID, not the number
+        created_by: user?.id || null,  // Use current user's UUID
+        assigned_to: taskFormData.assigned_to || null  // Employee UUID
+      };
+      
+      // Only include optional fields if they have values
+      if (taskFormData.description) {
+        taskData.description = taskFormData.description;
+      }
+      if (taskFormData.due_date) {
+        taskData.due_date = taskFormData.due_date;
+      }
+      
+      console.log('Sending task data:', taskData);
+      console.log('Current user:', user);
+      
+      await axios.post(
+        `${API_URL}/tasks`,
+        taskData,
+        { withCredentials: true }
+      );
+      
+      setTaskDialogOpen(false);
+      setTaskFormData({
+        title: '',
+        status: 'Open',
+        priority: 'MEDIUM',
+        assigned_to: '',  // Reset to empty (unassigned)
+        description: '',
+        due_date: getTomorrowDate()
+      });
+      
+      // Refresh the order data to show the new task in the activity timeline
+      fetchEvents();
+      
+    } catch (err) {
+      console.error('Error creating task:', err);
+      console.error('Error response:', err.response?.data);
+      const errorDetail = err.response?.data?.detail;
+      if (typeof errorDetail === 'string') {
+        setError(errorDetail);
+      } else if (Array.isArray(errorDetail)) {
+        setError(`Validation error: ${errorDetail.map(d => d.msg || d.message || String(d)).join(', ')}`);
+      } else {
+        setError('Failed to create task. Please try again.');
+      }
+    } finally {
+      setTaskLoading(false);
+    }
+  };
+
   // Handle status menu open
   const handleStatusMenuOpen = (event, statusId) => {
     setStatusMenuAnchor(event.currentTarget);
@@ -603,6 +727,59 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
       ...prev,
       [stageId]: !prev[stageId]
     }));
+  };
+  
+  // Handle action menu open
+  const handleActionMenuOpen = (event, statusId) => {
+    setActionMenuAnchor(event.currentTarget);
+    setActionMenuStatus(statusId);
+  };
+  
+  // Handle action menu close
+  const handleActionMenuClose = () => {
+    setActionMenuAnchor(null);
+    setActionMenuStatus(null);
+  };
+  
+  // Handle action menu item click
+  const handleActionMenuClick = (action) => {
+    handleActionMenuClose();
+    
+    switch(action) {
+      case 'note':
+        setNewNote('');
+        setNoteDialogOpen(true);
+        break;
+      case 'task':
+        setTaskFormData({
+          title: '',
+          status: 'Open',
+          priority: 'Medium',
+          assigned_to: user?.email || '',  // Default to current user's email
+          description: '',
+          due_date: getTomorrowDate()
+        });
+        setTaskDialogOpen(true);
+        break;
+      case 'quote':
+        // TODO: Implement quote creation dialog
+        console.log('Add quote for status:', actionMenuStatus);
+        break;
+      case 'po':
+        // TODO: Implement PO creation dialog
+        console.log('Add PO for status:', actionMenuStatus);
+        break;
+      case 'invoice':
+        // TODO: Implement invoice creation dialog
+        console.log('Add invoice for status:', actionMenuStatus);
+        break;
+      case 'document':
+        // TODO: Implement document upload dialog
+        console.log('Add document for status:', actionMenuStatus);
+        break;
+      default:
+        break;
+    }
   };
   
   // Get event type info
@@ -1134,15 +1311,32 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
                                       )}
                                       
                                       {isCurrent && (
-                                        <Button
-                                          variant="contained"
-                                          size="small"
-                                          startIcon={<CheckIcon />}
-                                          onClick={() => handleStatusUpdate(status.id)}
-                                          sx={{ mt: 1 }}
-                                        >
-                                          Mark as Complete
-                                        </Button>
+                                        <Box sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'center' }}>
+                                          <Button
+                                            variant="contained"
+                                            size="small"
+                                            startIcon={<CheckIcon />}
+                                            onClick={() => handleStatusUpdate(status.id)}
+                                          >
+                                            Mark as Complete
+                                          </Button>
+                                          
+                                          {/* Action Menu Button */}
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => handleActionMenuOpen(e, status.id)}
+                                            sx={{ 
+                                              border: '1px solid',
+                                              borderColor: 'primary.main',
+                                              color: 'primary.main',
+                                              '&:hover': {
+                                                backgroundColor: 'primary.50'
+                                              }
+                                            }}
+                                          >
+                                            <AddIcon fontSize="small" />
+                                          </IconButton>
+                                        </Box>
                                       )}
                                     </Box>
                                   </Box>
@@ -1287,6 +1481,17 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
         </DialogActions>
       </Dialog>
 
+      {/* Task Dialog */}
+      <TaskDialog
+        open={taskDialogOpen}
+        onClose={() => setTaskDialogOpen(false)}
+        formData={taskFormData}
+        onChange={handleTaskChange}
+        onCreate={handleCreateTask}
+        loading={taskLoading}
+        employees={employees}
+      />
+
       {/* Status Options Menu */}
       <Menu
         anchorEl={statusMenuAnchor}
@@ -1330,6 +1535,41 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
             </MenuItem>
           </>
         )}
+      </Menu>
+      
+      {/* Action Menu */}
+      <Menu
+        anchorEl={actionMenuAnchor}
+        open={Boolean(actionMenuAnchor)}
+        onClose={handleActionMenuClose}
+        PaperProps={{
+          sx: { minWidth: 200 }
+        }}
+      >
+        <MenuItem onClick={() => handleActionMenuClick('task')} sx={{ gap: 1.5 }}>
+          <TaskIcon fontSize="small" color="primary" />
+          Add Task
+        </MenuItem>
+        <MenuItem onClick={() => handleActionMenuClick('quote')} sx={{ gap: 1.5 }}>
+          <QuoteIcon fontSize="small" color="primary" />
+          Add Quote
+        </MenuItem>
+        <MenuItem onClick={() => handleActionMenuClick('note')} sx={{ gap: 1.5 }}>
+          <NoteAddIcon fontSize="small" color="primary" />
+          Add Note
+        </MenuItem>
+        <MenuItem onClick={() => handleActionMenuClick('po')} sx={{ gap: 1.5 }}>
+          <POIcon fontSize="small" color="primary" />
+          Add Purchase Order
+        </MenuItem>
+        <MenuItem onClick={() => handleActionMenuClick('invoice')} sx={{ gap: 1.5 }}>
+          <InvoiceIcon fontSize="small" color="primary" />
+          Add Invoice
+        </MenuItem>
+        <MenuItem onClick={() => handleActionMenuClick('document')} sx={{ gap: 1.5 }}>
+          <FileIcon fontSize="small" color="primary" />
+          Add Document
+        </MenuItem>
       </Menu>
     </Box>
   );

@@ -63,8 +63,14 @@ import {
   AssignmentTurnedIn as CompletedIcon,
   AttachMoney as RevenueIcon,
   MoneyOff as OutstandingIcon,
-  MoreVert as MoreVertIcon
+  MoreVert as MoreVertIcon,
+  PersonAdd as PersonAddIcon,
+  AddShoppingCart as AddOrderIcon
 } from '@mui/icons-material';
+
+// Import CustomerDialog and OrderDialog components
+import CustomerDialog from './CustomerDialog';
+import OrderDialog from './OrderDialog';
 
 // API URL
 const API_URL = 'http://localhost:8000';
@@ -90,6 +96,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateFilter, setDateFilter] = useState('today');
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   
   // Summary state variables
   const [todaysTasks, setTodaysTasks] = useState([]);
@@ -119,13 +127,10 @@ const Dashboard = () => {
     setError(null);
     
     try {
-      // Fetch all necessary data in parallel
-      const [tasksRes, ordersRes, quotesRes, invoicesRes] = await Promise.all([
+      // Fetch essential data first
+      const [tasksRes, ordersRes] = await Promise.all([
         axios.get(`${API_URL}/tasks`, { withCredentials: true }),
-        axios.get(`${API_URL}/orders`, { withCredentials: true }),
-        // These endpoints may need to be implemented if they don't exist
-        axios.get(`${API_URL}/quickbooks/invoices`, { withCredentials: true }),
-        axios.get(`${API_URL}/quickbooks/invoices`, { withCredentials: true })
+        axios.get(`${API_URL}/orders`, { withCredentials: true })
       ]);
       
       // Process tasks
@@ -136,12 +141,34 @@ const Dashboard = () => {
       const ordersData = ordersRes.data && ordersRes.data.orders ? ordersRes.data.orders : [];
       setOrders(ordersData);
       
-      // Process quotes and invoices
-      setQuotes(quotesRes.data?.invoices || []);
-      setInvoices(invoicesRes.data?.invoices || []);
+      // Try to fetch QuickBooks data, but don't fail if endpoints don't exist
+      let quotesData = [];
+      let invoicesData = [];
+      
+      try {
+        const quotesRes = await axios.get(`${API_URL}/quickbooks/invoices`, { withCredentials: true });
+        quotesData = quotesRes.data?.invoices || [];
+      } catch (err) {
+        if (err.response?.status !== 404) {
+          console.warn('Failed to fetch quotes data:', err.message);
+        }
+      }
+      
+      try {
+        const invoicesRes = await axios.get(`${API_URL}/quickbooks/invoices`, { withCredentials: true });
+        invoicesData = invoicesRes.data?.invoices || [];
+      } catch (err) {
+        if (err.response?.status !== 404) {
+          console.warn('Failed to fetch invoices data:', err.message);
+        }
+      }
+      
+      // Set the data
+      setQuotes(quotesData);
+      setInvoices(invoicesData);
       
       // Process the data for dashboard metrics
-      processDataForDashboard(tasksData, ordersData, quotesRes.data?.invoices || [], invoicesRes.data?.invoices || []);
+      processDataForDashboard(tasksData, ordersData, quotesData, invoicesData);
       
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -321,6 +348,24 @@ const Dashboard = () => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
   
+  // Handle customer creation
+  const handleCustomerCreated = (newCustomer) => {
+    setCustomerDialogOpen(false);
+    // Optionally navigate to the customers page or show a success message
+    if (newCustomer && newCustomer.customer_id) {
+      navigate('/customers');
+    }
+  };
+
+  // Handle order creation
+  const handleOrderCreated = (newOrder) => {
+    setOrderDialogOpen(false);
+    // Navigate to the new order or show a success message
+    if (newOrder && newOrder.order_id) {
+      navigate(`/orders/${newOrder.order_id}`);
+    }
+  };
+  
   // Render dashboard content
   if (loading) {
     return (
@@ -347,6 +392,84 @@ const Dashboard = () => {
       px: { xs: 1, sm: 2, md: 3 },
       py: 3
     }}>
+      {/* Quick Actions Section */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 3, 
+          mb: 4, 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 2
+        }}
+      >
+        <Typography 
+          variant="h5" 
+          component="h2" 
+          sx={{ 
+            color: 'white', 
+            fontWeight: 600,
+            mb: 3 
+          }}
+        >
+          Quick Actions
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              startIcon={<PersonAddIcon />}
+              onClick={() => setCustomerDialogOpen(true)}
+              sx={{
+                py: 2,
+                backgroundColor: 'white',
+                color: '#667eea',
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '1rem',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  backgroundColor: '#f8f9fa',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.15)'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Add New Customer
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              startIcon={<AddOrderIcon />}
+              onClick={() => setOrderDialogOpen(true)}
+              sx={{
+                py: 2,
+                backgroundColor: 'white',
+                color: '#764ba2',
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '1rem',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  backgroundColor: '#f8f9fa',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.15)'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Add New Order
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Existing Dashboard Content */}
       <Box sx={{ 
         display: 'flex', 
         flexDirection: { xs: 'column', sm: 'row' },
@@ -2233,6 +2356,20 @@ const Dashboard = () => {
           </Table>
         </TableContainer>
       </Paper>
+      
+      {/* Customer Dialog */}
+      <CustomerDialog
+        open={customerDialogOpen}
+        onClose={() => setCustomerDialogOpen(false)}
+        onCustomerCreated={handleCustomerCreated}
+      />
+      
+      {/* Order Dialog */}
+      <OrderDialog
+        open={orderDialogOpen}
+        onClose={() => setOrderDialogOpen(false)}
+        onOrderCreated={handleOrderCreated}
+      />
     </Box>
   );
 };

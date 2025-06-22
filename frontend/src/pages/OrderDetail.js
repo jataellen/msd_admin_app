@@ -44,6 +44,7 @@ import OrderTabs from '../components/OrderTabs';
 import StatusDialog from '../components/StatusDialog';
 import TaskDialog from '../components/TaskDialog';
 import OrderProgress from '../components/OrderProgress';
+import OrderDialog from '../components/OrderDialog';
 
 // Import formatters
 import { formatDate, formatCurrency, getStatusColor } from '../utils/formatters';
@@ -71,6 +72,7 @@ const OrderDetail = () => {
   const [orderStatuses, setOrderStatuses] = useState([]);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [taskDialog, setTaskDialog] = useState(false);
+  const [editDialog, setEditDialog] = useState(false);
   const [taskFormData, setTaskFormData] = useState({
     title: '',
     status: 'Open',
@@ -232,6 +234,13 @@ const OrderDetail = () => {
     }
   };
   
+  // Handle order update from edit dialog
+  const handleOrderUpdated = (updatedOrder) => {
+    // Refresh the order data to get the latest information
+    window.location.reload();
+    setEditDialog(false);
+  };
+  
   // Handle tab change
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -389,7 +398,7 @@ const OrderDetail = () => {
         order={order}
         customer={customer}
         onStatusUpdate={() => setStatusDialog(true)}
-        onEdit={() => navigate(`/orders/${id}/edit`)}
+        onEdit={() => setEditDialog(true)}
         onAddTask={() => setTaskDialog(true)}
       />
       
@@ -436,7 +445,7 @@ const OrderDetail = () => {
               {customer ? (
                 <Box>
                   <Typography variant="h6">
-                    {customer.company_name || 'N/A'}
+                    {customer.name || 'N/A'}
                   </Typography>
                   <Box sx={{ mt: 2 }}>
                     <List dense disablePadding>
@@ -554,6 +563,14 @@ const OrderDetail = () => {
         }
         onCreate={handleCreateTask}
         loading={updateLoading}
+      />
+      
+      <OrderDialog
+        open={editDialog}
+        onClose={() => setEditDialog(false)}
+        onOrderCreated={handleOrderUpdated}
+        order={order}
+        mode="edit"
       />
     </Container>
   );

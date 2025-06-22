@@ -41,6 +41,9 @@ import {
   Timeline as TimelineIcon
 } from '@mui/icons-material';
 
+// Import OrderDialog component
+import OrderDialog from '../components/OrderDialog';
+
 // API URL
 const API_URL = 'http://localhost:8000';
 
@@ -66,6 +69,7 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   const [orderStages, setOrderStages] = useState([]);
   const [orderPriorities, setOrderPriorities] = useState([]);
   const [stageCounts, setStageCounts] = useState({});
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
   
   // Fetch orders and dropdown options
   useEffect(() => {
@@ -175,6 +179,15 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
   // Handle page change
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
+  };
+
+  // Handle order creation
+  const handleOrderCreated = (newOrder) => {
+    setOrderDialogOpen(false);
+    // Navigate to the new order detail page
+    if (newOrder && newOrder.order_id) {
+      navigate(`/orders/${newOrder.order_id}`);
+    }
   };
   
   // Handle refresh
@@ -349,7 +362,7 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
               variant="contained" 
               color="primary" 
               startIcon={<AddIcon />}
-              onClick={() => navigate('/orders/add')}
+              onClick={() => setOrderDialogOpen(true)}
             >
               New Order
             </Button>
@@ -564,6 +577,13 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
             : "No orders available."}
         </Alert>
       )}
+      
+      {/* Order Dialog */}
+      <OrderDialog
+        open={orderDialogOpen}
+        onClose={() => setOrderDialogOpen(false)}
+        onOrderCreated={handleOrderCreated}
+      />
     </Box>
   );
 };

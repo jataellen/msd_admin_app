@@ -27,8 +27,8 @@ TASK_STATUSES = {
     "NOT_INTERESTED": "Not Interested",
 }
 
-# Priority levels
-PRIORITIES = {"URGENT": "Urgent", "HIGH": "High", "MEDIUM": "Medium", "LOW": "Low"}
+# Priority levels - must match database enum values
+PRIORITIES = {"URGENT": "URGENT", "HIGH": "HIGH", "MEDIUM": "MEDIUM", "LOW": "LOW"}
 
 
 # Request/Response models
@@ -36,8 +36,8 @@ class TaskBase(BaseModel):
     title: str
     status: str
     priority: str
-    assigned_to: Optional[str] = None
-    order_id: Optional[int] = None
+    assigned_to: Optional[str] = None  # Employee UUID
+    order_id: Optional[str] = None  # Order UUID
     start_date: Optional[str] = None
     due_date: Optional[str] = None
     description: Optional[str] = None
@@ -53,7 +53,7 @@ class TaskBase(BaseModel):
     notes: Optional[str] = None
     next_action: Optional[str] = None
     last_action: Optional[str] = None
-    created_by: int
+    created_by: Optional[str] = None
 
 
 class TaskCreate(TaskBase):
@@ -117,42 +117,66 @@ async def create_task(task: TaskCreate, current_user: dict = Depends(get_current
                     detail=f"Order with id {task.order_id} not found",
                 )
 
-        # Create task
-        logger.info(f"Creating task: {task.title}")
+        # Validate employee if assigned_to is provided
+        if task.assigned_to:
+            employee = (
+                supabase.table("employees")
+                .select("employee_id")
+                .eq("employee_id", task.assigned_to)
+                .execute()
+            )
+            if not employee.data:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Employee with id {task.assigned_to} not found",
+                )
 
         # Prepare the current timestamp
         now = datetime.now().isoformat()
 
+        # Only include fields that actually exist in the database
         task_data = {
             "title": task.title,
             "status": task.status,
             "priority": task.priority,
-            "assigned_to": task.assigned_to,
             "order_id": task.order_id,
-            "start_date": task.start_date,
-            "due_date": task.due_date,
-            "description": task.description,
-            "estimated_hours": task.estimated_hours,
-            "predecessor_task_id": task.predecessor_task_id,
-            "related_to_type": task.related_to_type,
-            "related_to_id": task.related_to_id,
-            "recurring": task.recurring,
-            "recurrence_pattern": task.recurrence_pattern,
-            "recurrence_end_date": task.recurrence_end_date,
-            "reminder_date": task.reminder_date,
-            "reminder_sent": task.reminder_sent,
-            "notes": task.notes,
-            "next_action": task.next_action,
-            "last_action": task.last_action,
-            "created_by": task.created_by,
+            "created_by": task.created_by or current_user.get("id"),
             "created_at": now,
             "updated_at": now,
         }
+        
+        # Add optional fields only if they have values
+        if task.assigned_to:
+            task_data["assigned_to"] = task.assigned_to
+        if task.due_date:
+            task_data["due_date"] = task.due_date
+        if task.description:
+            task_data["description"] = task.description
+        if task.notes:
+            task_data["notes"] = task.notes
 
         response = supabase.table("tasks").insert(task_data).execute()
 
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to create task")
+
+        created_task = response.data[0]
+
+        # Create order event for task creation if task is associated with an order
+        if task.order_id:
+            try:
+                task_event_data = {
+                    "order_id": task.order_id,
+                    "event_type": "task",
+                    "description": f"Task '{task.title}' was created and assigned",
+                    "created_by": current_user.get("id"),
+                    "created_at": now,
+                }
+                supabase.table("order_events").insert(task_event_data).execute()
+                logger.info(f"Task creation event recorded for order {task.order_id}")
+            except Exception as event_error:
+                # Log but don't fail task creation if event recording fails
+                logger.warning(f"Failed to record task creation event: {str(event_error)}")
 
         # If this is an order-related task with a specific status, update order stage
         if task.order_id and task.title:
@@ -344,6 +368,36 @@ async def update_task(
 
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to update task")
+
+        updated_task = response.data[0]
+
+        # Create order event for task updates if task is associated with an order
+        if current_task.get("order_id"):
+            try:
+                # Determine what changed
+                changes = []
+                if task_update.status and task_update.status != current_task.get("status"):
+                    changes.append(f"status changed to '{task_update.status}'")
+                if task_update.assigned_to and task_update.assigned_to != current_task.get("assigned_to"):
+                    changes.append(f"assigned to {task_update.assigned_to}")
+                if task_update.priority and task_update.priority != current_task.get("priority"):
+                    changes.append(f"priority changed to '{task_update.priority}'")
+                
+                if changes:
+                    description = f"Task '{current_task['title']}' was updated: {', '.join(changes)}"
+                    
+                    task_event_data = {
+                        "order_id": current_task["order_id"],
+                        "event_type": "task",
+                        "description": description,
+                        "created_by": current_user.get("id"),
+                        "created_at": update_data["updated_at"],
+                    }
+                    supabase.table("order_events").insert(task_event_data).execute()
+                    logger.info(f"Task update event recorded for order {current_task['order_id']}")
+            except Exception as event_error:
+                # Log but don't fail task update if event recording fails
+                logger.warning(f"Failed to record task update event: {str(event_error)}")
 
         # Handle task status change triggers for order stages
         now = datetime.now().isoformat()

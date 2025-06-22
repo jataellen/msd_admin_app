@@ -1,5 +1,6 @@
 // src/pages/Home.js
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 // Material UI imports
@@ -20,17 +21,26 @@ import {
   CircularProgress,
   Alert,
   Pagination,
-  Button
+  Button,
+  Card,
+  CardContent,
+  Grid
 } from '@mui/material';
 
 // Material UI icons
 import {
   Search as SearchIcon,
   Clear as ClearIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  PersonAdd as PersonAddIcon,
+  AddShoppingCart as AddOrderIcon
 } from '@mui/icons-material';
 
+// Import CustomerDialog component
+import CustomerDialog from '../components/CustomerDialog';
+
 const Home = () => {
+  const navigate = useNavigate();
   const [workItems, setWorkItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,6 +48,7 @@ const Home = () => {
   const [filteredItems, setFilteredItems] = useState([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(10);
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
 
   // const API_URL = 'https://msdadminapp-production.up.railway.app';
   const API_URL = 'http://localhost:8000';
@@ -150,6 +161,15 @@ const Home = () => {
     }
   };
 
+  // Handle customer creation
+  const handleCustomerCreated = (newCustomer) => {
+    setCustomerDialogOpen(false);
+    // Optionally navigate to the new customer or show a success message
+    if (newCustomer && newCustomer.customer_id) {
+      navigate(`/customers/${newCustomer.customer_id}`);
+    }
+  };
+
   // Handle refresh
   const handleRefresh = async () => {
     setLoading(true);
@@ -187,6 +207,84 @@ const Home = () => {
 
   return (
     <Box sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+      {/* Quick Actions Section */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 3, 
+          mb: 4, 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: 2
+        }}
+      >
+        <Typography 
+          variant="h5" 
+          component="h2" 
+          sx={{ 
+            color: 'white', 
+            fontWeight: 600,
+            mb: 3 
+          }}
+        >
+          Quick Actions
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              startIcon={<PersonAddIcon />}
+              onClick={() => setCustomerDialogOpen(true)}
+              sx={{
+                py: 2,
+                backgroundColor: 'white',
+                color: '#667eea',
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '1rem',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  backgroundColor: '#f8f9fa',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.15)'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Add New Customer
+            </Button>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              startIcon={<AddOrderIcon />}
+              onClick={() => navigate('/orders')}
+              sx={{
+                py: 2,
+                backgroundColor: 'white',
+                color: '#764ba2',
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '1rem',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  backgroundColor: '#f8f9fa',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.15)'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Add New Order
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Existing Dashboard Content */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Work Items
@@ -322,6 +420,13 @@ const Home = () => {
             : "No work items available."}
         </Alert>
       )}
+      
+      {/* Customer Dialog */}
+      <CustomerDialog
+        open={customerDialogOpen}
+        onClose={() => setCustomerDialogOpen(false)}
+        onCustomerCreated={handleCustomerCreated}
+      />
     </Box>
   );
 };

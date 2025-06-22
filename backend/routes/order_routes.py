@@ -82,24 +82,24 @@ WORKFLOW_STAGES = [
 
 # Request/Response models
 class OrderBase(BaseModel):
-    order_name: str
-    description: Optional[str] = None
-    location: Optional[str] = None
+    order_name: Optional[str] = None
     customer_id: str
+    project_address: str
+    project_city: str
+    project_state: str
+    project_zip: str
+    scope_of_work: Optional[str] = None
+    estimated_total: Optional[float] = None
     priority: Optional[str] = None
-    start_date: Optional[str] = None
-    target_completion_date: Optional[str] = None
-    budget: Optional[float] = None
-    order_manager_id: Optional[str] = None
-    contract_number: Optional[str] = None
     notes: Optional[str] = None
-    type: Optional[str] = None
-    current_stage: Optional[str] = None
+    workflow_type: Optional[str] = None
+    workflow_status: Optional[str] = None
 
 
 class OrderCreate(OrderBase):
     workflow_type: Optional[str] = None
     selected_stages: List[str] = []
+    site_visit_required: Optional[bool] = False
 
 
 class OrderUpdate(BaseModel):
@@ -136,46 +136,23 @@ async def create_order(
         if not current_user:
             raise HTTPException(status_code=401, detail="Not authenticated")
 
-        logger.info(f"Creating new order: {order.order_name}")
+        logger.info(f"Creating new order: {order.order_name or 'Untitled Order'}")
 
-        # Validate selected stages if provided
-        if hasattr(order, "selected_stages") and order.selected_stages:
-            for stage_id in order.selected_stages:
-                if stage_id not in WORKFLOW_STAGES:
-                    raise HTTPException(
-                        status_code=400, detail=f"Invalid stage ID: {stage_id}"
-                    )
-
-        # Initialize current_stage to first stage of workflow if not provided
-        if not order.current_stage:
-            # If we have selected stages, use the first selected stage
-            if hasattr(order, "selected_stages") and order.selected_stages:
-                order.current_stage = order.selected_stages[0]
-            # Otherwise default to first stage in workflow
-            else:
-                order.current_stage = WORKFLOW_STAGES[0]
-
-        # Validate stage if provided
-        if order.current_stage and order.current_stage not in WORKFLOW_STAGES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid stage. Valid stages: {', '.join(WORKFLOW_STAGES)}",
-            )
+        # Set default workflow status if not provided
+        if not order.workflow_status:
+            order.workflow_status = "NEW_LEAD"
+        
+        # Set default workflow type if not provided
+        if not order.workflow_type:
+            order.workflow_type = "MATERIALS_ONLY"
 
         # Current timestamp for created_at and updated_at
         now = datetime.now().isoformat()
 
         # Prepare order data for db
-        order_data = order.dict(exclude={"workflow_type", "selected_stages"})
+        order_data = order.dict(exclude={"selected_stages", "site_visit_required"})
         order_data["created_at"] = now
         order_data["updated_at"] = now
-        order_data["last_status_update"] = now
-        order_data["completed_stages"] = []
-
-        # Set budget_remaining if budget is provided
-        if order.budget:
-            order_data["budget_remaining"] = order.budget
-            order_data["budget_spent"] = 0
 
         # Insert order into database
         response = supabase.table("orders").insert(order_data).execute()
@@ -185,13 +162,70 @@ async def create_order(
 
         created_order = response.data[0]
         
+        # Create site visit record and task if required
+        if order.site_visit_required:
+            try:
+                # Create site visit record
+                site_visit_data = {
+                    "order_id": created_order["order_id"],
+                    "visit_type": "INITIAL_ESTIMATE",  # Default type for new site visits
+                    "notes": "Site visit requested during order creation",
+                    "created_at": now,
+                    "updated_at": now
+                }
+                site_visit_response = supabase.table("site_visits").insert(site_visit_data).execute()
+                logger.info(f"Site visit created for order {created_order['order_id']}")
+                
+                # Create task for site visit scheduling
+                if site_visit_response.data:
+                    site_visit_id = site_visit_response.data[0]["visit_id"]
+                    
+                    # Calculate due date (3 days from now)
+                    due_date = (datetime.now() + timedelta(days=3)).date().isoformat()
+                    
+                    task_data = {
+                        "title": "Schedule Site Visit",
+                        "description": f"Schedule and coordinate site visit for order '{order.order_name}'",
+                        "task_type": "SITE_VISIT",
+                        "order_id": created_order["order_id"],
+                        "related_entity_type": "SITE_VISIT",
+                        "related_entity_id": site_visit_id,
+                        "assigned_to": current_user.get("id"),
+                        "status": "PENDING",
+                        "priority": "HIGH",
+                        "due_date": due_date,
+                        "auto_generated": True,
+                        "notes": "Automatically created when site visit was requested during order creation",
+                        "created_by": current_user.get("id"),
+                        "created_at": now,
+                        "updated_at": now
+                    }
+                    task_response = supabase.table("tasks").insert(task_data).execute()
+                    logger.info(f"Site visit scheduling task created for order {created_order['order_id']}")
+                    
+                    # Create order event for task creation
+                    if task_response.data:
+                        task_event_data = {
+                            "order_id": created_order["order_id"],
+                            "event_type": "task",
+                            "description": f"Task 'Schedule Site Visit' was automatically created and assigned",
+                            "created_by": current_user.get("id"),
+                            "created_at": now,
+                        }
+                        supabase.table("order_events").insert(task_event_data).execute()
+                        logger.info(f"Task creation event recorded for order {created_order['order_id']}")
+                
+            except Exception as site_visit_error:
+                # Log but don't fail order creation if site visit creation fails
+                logger.warning(f"Failed to create site visit or task: {str(site_visit_error)}")
+        
         # Record the order creation event
         try:
             event_data = {
                 "order_id": created_order["order_id"],
                 "event_type": "order_creation",
-                "description": f"Order '{order.order_name}' was created",
-                "new_stage": order.current_stage,
+                "description": f"Order '{order.order_name or 'Untitled'}' was created" + (" with site visit requested and scheduling task assigned" if order.site_visit_required else ""),
+                "new_stage": order.workflow_status,
                 "created_by": current_user.get("id"),
                 "created_at": now,
             }

@@ -513,7 +513,7 @@ const CustomerList = () => {
                             </Avatar>
                             <Box>
                               <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                                {customer.company_name}
+                                {customer.name}
                               </Typography>
                               <Chip 
                                 label={customer.customer_type} 

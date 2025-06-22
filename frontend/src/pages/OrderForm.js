@@ -182,7 +182,7 @@ const OrderForm = () => {
     }));
     
     // Show success message
-    setSuccess(`Customer "${newCustomer.company_name}" created successfully`);
+    setSuccess(`Customer "${newCustomer.name}" created successfully`);
     
     // Clear success message after 3 seconds
     setTimeout(() => setSuccess(null), 3000);
@@ -453,7 +453,7 @@ const OrderForm = () => {
                                     <HomeIcon fontSize="small" color="success" />
                                   }
                                   <span>
-                                    {customer.company_name}
+                                    {customer.name}
                                     {customer.contact_first_name && customer.contact_last_name && 
                                       ` (${customer.contact_first_name} ${customer.contact_last_name})`
                                     }
