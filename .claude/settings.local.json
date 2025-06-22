@@ -21,7 +21,8 @@
       "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -A 5 -B 5 \"Other stage events\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)",
       "Bash(cp:*)",
       "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n \"Other stage events\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)",
-      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -B 10 -A 2 \"Other stage events\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)"
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg -n -B 10 -A 2 \"Other stage events\" /Users/jata/Documents/MSD_App/msd_admin_app/frontend/src/components/CombinedOrderTrackingRedesign.js)",
+      "Bash(/Users/jata/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg \"setError\" CombinedOrderTrackingRedesign.js -n)"
     ],
     "deny": []
   }

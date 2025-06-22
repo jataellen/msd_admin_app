@@ -108,7 +108,10 @@ const CustomerList = () => {
       }
     } catch (err) {
       console.error('Error fetching customers:', err);
-      setError('Failed to load customers. Please try again.');
+      // Only show error if it's not an authentication issue
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        setError('Failed to load customers. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

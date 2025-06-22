@@ -104,7 +104,10 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
         }
       } catch (err) {
         console.error('Error fetching data:', err);
-        setError('Failed to load orders data. Please try again.');
+        // Only show error if it's not an authentication issue
+        if (err.response?.status !== 401 && err.response?.status !== 403) {
+          setError('Failed to load orders data. Please try again.');
+        }
       } finally {
         setLoading(false);
       }
@@ -191,7 +194,10 @@ const OrderList = ({ initialFilter = '', viewMode = 'standard' }) => {
       }
     } catch (err) {
       console.error('Error refreshing orders:', err);
-      setError('Failed to refresh orders. Please try again.');
+      // Only show error if it's not an authentication issue
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        setError('Failed to refresh orders. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

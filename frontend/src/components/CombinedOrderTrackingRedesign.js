@@ -262,7 +262,10 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
       }
     } catch (err) {
       console.error('Error fetching order:', err);
-      setError('Failed to load order data. Please try again.');
+      // Only show error if it's not an authentication issue
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        setError('Failed to load order data. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -296,7 +299,10 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
       
     } catch (err) {
       console.error('Error fetching workflow data:', err);
-      setError('Failed to load workflow data. Please contact support.');
+      // Only show error if it's not an authentication issue
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        setError('Failed to load workflow data. Please contact support.');
+      }
     }
   };
   
@@ -320,7 +326,10 @@ const CombinedOrderTracking = ({ orderId, orderData }) => {
       }
     } catch (err) {
       console.error('Error fetching order history:', err);
-      setError((prevError) => prevError || 'Failed to load order history. Please try again.');
+      // Only show error if it's not an authentication issue
+      if (err.response?.status !== 401 && err.response?.status !== 403) {
+        setError((prevError) => prevError || 'Failed to load order history. Please try again.');
+      }
     }
   };
   

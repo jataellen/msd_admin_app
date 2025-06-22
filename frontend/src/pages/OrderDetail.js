@@ -152,7 +152,10 @@ const OrderDetail = () => {
         }
       } catch (err) {
         console.error('Error fetching order details:', err);
-        setError('Failed to load order details. Please try again.');
+        // Only show error if it's not an authentication issue
+        if (err.response?.status !== 401 && err.response?.status !== 403) {
+          setError('Failed to load order details. Please try again.');
+        }
       } finally {
         setLoading(false);
       }
